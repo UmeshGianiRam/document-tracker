@@ -281,135 +281,116 @@
 
     <div id="printArea" class="hidden"></div>
 
-    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script> <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
         // --- Configuration ---
-        // Client ID obtained from Google Cloud Console
         const CLIENT_ID = '908628126955-3fovl5fh2c3gu8puvdmke0id1a6s0qkm.apps.googleusercontent.com';
-        // API Key obtained from Google Cloud Console (MUST BE RESTRICTED)
         const API_KEY = 'AIzaSyBzPLM7rLE250ARAUDBF8Zm66M7IupKtCE'; // API Key added
-        // Discovery document for Google Drive API v3
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-        // Scopes define the level of access requested. drive.file is recommended for security.
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
-        // Filenames for storing data in Google Drive
         const TRANSACTIONS_FILENAME = 'document_tracker_data.json';
         const COMPANY_DETAILS_FILENAME = 'document_tracker_company.json';
 
         // --- Global State Variables ---
-        let tokenClient; // Google Identity Services token client
-        let gapiInited = false; // Flag for GAPI client library initialization
-        let gisInited = false; // Flag for GIS library initialization
-        let transactionsData = []; // In-memory cache of transactions
-        let companyDetailsData = null; // In-memory cache of company details
-        let transactionsFileId = null; // Google Drive File ID for transactions data
-        let companyDetailsFileId = null; // Google Drive File ID for company details data
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let transactionsData = [];
+        let companyDetailsData = null;
+        let transactionsFileId = null;
+        let companyDetailsFileId = null;
 
         // --- Utility Functions ---
-        const $ = (selector) => document.getElementById(selector); // Shorthand for getElementById
-        const $$ = (selector) => document.querySelectorAll(selector); // Shorthand for querySelectorAll
-        // Formats a number as Indian Rupees (INR)
+        const $ = (selector) => document.getElementById(selector);
+        const $$ = (selector) => document.querySelectorAll(selector);
         const formatCurrency = (num) => { const v = parseFloat(num); return !isNaN(v) ? v.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'; };
-        // Shows the loading indicator overlay
         const showLoading = (message = 'Loading...') => { $('loadingIndicator').textContent = message; $('loadingIndicator').style.display = 'block'; };
-        // Hides the loading indicator overlay
         const hideLoading = () => { $('loadingIndicator').style.display = 'none'; };
 
         // --- Google API & Auth Initialization ---
 
         // Called after Google API client library (gapi.js) loads.
-        function gapiLoaded() { // <<-- UNCOMMENTED
+        function gapiLoaded() {
             gapi.load('client', initializeGapiClient); // Load the 'client' module
-        } // <<-- UNCOMMENTED
+        }
 
         // Initializes the Google API client library (gapi.client).
         async function initializeGapiClient() {
             try {
-                // Initialize the client with API key and discovery docs
                 await gapi.client.init({
                     apiKey: API_KEY,
                     discoveryDocs: DISCOVERY_DOCS,
                 });
-                gapiInited = true; // Set flag
+                gapiInited = true;
                 console.log("GAPI client initialized.");
-                maybeEnableButtons(); // Check if both libraries are ready
+                maybeEnableButtons();
             } catch (error) {
                 console.error("Error initializing GAPI client:", error);
                 $('authStatus').textContent = 'Error initializing Google API.';
-                // Provide more user-friendly error feedback if possible
             }
         }
 
-        // Called after Google Identity Services library (accounts.google.com/gsi/client) loads.
-        function gisLoaded() { // <<-- UNCOMMENTED (if it was commented)
+        // Called after Google Identity Services library loads.
+        function gisLoaded() {
             try {
-                // Initialize the token client for handling OAuth 2.0 flow
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
-                    callback: tokenResponseCallback, // Function called after token response
-                    error_callback: (error) => { // Function called on GIS error
+                    callback: tokenResponseCallback,
+                    error_callback: (error) => {
                         console.error('GIS Error:', error);
                         $('authStatus').textContent = 'Authentication error.';
                         hideLoading();
-                        updateAuthUI(false); // Ensure UI reflects failed auth
+                        updateAuthUI(false);
                     }
                 });
-                gisInited = true; // Set flag
+                gisInited = true;
                 console.log("GIS client initialized.");
-                maybeEnableButtons(); // Check if both libraries are ready
+                maybeEnableButtons();
             } catch (error) {
                 console.error("Error initializing GIS client:", error);
                 $('authStatus').textContent = 'Error initializing Google Sign-In.';
             }
-        } // <<-- UNCOMMENTED (if it was commented)
+        }
 
-        // Checks if both GAPI and GIS libraries are loaded and updates the UI.
+        // Checks if both libraries are loaded and updates the UI.
         function maybeEnableButtons() {
-            // Only proceed if both libraries are initialized
             if (gapiInited && gisInited) {
                  console.log("Both GAPI and GIS initialized. Updating UI.");
-                 // Display initial UI (buttons will be added in updateAuthUI)
-                 updateAuthUI(false); // Assume not signed in initially
-                 $('mainAppContent').style.display = 'block'; // Show the main container now
+                 updateAuthUI(false);
+                 $('mainAppContent').style.display = 'block';
             }
         }
 
         // Callback function executed after the user grants/denies permission or token is refreshed.
         async function tokenResponseCallback(tokenResponse) {
-            hideLoading(); // Hide loading indicator once response is received
+            hideLoading();
             if (tokenResponse && tokenResponse.access_token) {
                 console.log("Access token received.");
-                // Store the token with gapi.client for subsequent API calls
                 gapi.client.setToken(tokenResponse);
                 $('authStatus').textContent = 'Authorized.';
                 showLoading('Loading data from Google Drive...');
-                updateAuthUI(true); // Update UI to show signed-in state
-                await loadInitialDataFromDrive(); // Load data from Drive after successful auth
+                updateAuthUI(true);
+                await loadInitialDataFromDrive();
                 hideLoading();
             } else {
-                // Handle errors or denial of consent
                 console.error('Error in token response or consent denied:', tokenResponse);
                 $('authStatus').textContent = 'Authorization failed or denied.';
-                 updateAuthUI(false); // Ensure UI reflects signed-out state
+                 updateAuthUI(false);
             }
         }
 
         // --- Authentication UI and Actions ---
 
-        // Handles the sign-in button click. Initiates the OAuth flow.
         function handleAuthClick() {
             showLoading('Signing in...');
             if (tokenClient) {
-                 // Check if a token is already available (might be expired)
                 if (gapi.client.getToken() === null) {
-                    // No token, prompt the user to select an account and grant access.
                     console.log("Requesting access token with consent prompt.");
                     tokenClient.requestAccessToken({prompt: 'consent'});
                 } else {
-                    // Token exists, try a silent request first (might refresh if needed)
                     console.log("Requesting access token silently.");
                     tokenClient.requestAccessToken({prompt: ''});
                 }
@@ -420,39 +401,33 @@
             }
         }
 
-        // Handles the sign-out button click. Revokes the token.
         function handleSignOutClick() {
             const token = gapi.client.getToken();
             if (token !== null) {
                 showLoading('Signing out...');
-                // Revoke the token to sign the user out
                 google.accounts.oauth2.revoke(token.access_token, () => {
-                    gapi.client.setToken(null); // Clear the token from gapi client
-                    // Clear in-memory data and state
+                    gapi.client.setToken(null);
                     transactionsData = [];
                     companyDetailsData = null;
                     transactionsFileId = null;
                     companyDetailsFileId = null;
-                    updateAuthUI(false); // Update UI to signed-out state
+                    updateAuthUI(false);
                     console.log('User signed out and token revoked.');
                     hideLoading();
-                    // Clear the displayed list and dashboard
                     displayTransactions();
                     updateDashboard();
                 });
             }
         }
 
-        // Updates the UI (buttons, content visibility) based on authentication status.
         function updateAuthUI(isSignedIn) {
             const authContainer = $('authContainer');
             const authorizedContent = $('authorizedContent');
             const unauthorizedContent = $('unauthorizedContent');
 
-            authContainer.innerHTML = ''; // Clear previous buttons/status
+            authContainer.innerHTML = '';
 
             if (isSignedIn) {
-                // User is signed in: Show Sign Out button, hide unauthorized message, show main content
                 const signOutButton = document.createElement('button');
                 signOutButton.id = 'signout_button';
                 signOutButton.textContent = 'Sign Out';
@@ -463,11 +438,9 @@
                 authorizedContent.style.display = 'block';
                 unauthorizedContent.style.display = 'none';
 
-                // Perform actions needed after sign-in (data loading happens in token callback)
-                loadCompanyDetailsIntoForm(); // Ensure form reflects loaded/default details
-                populateStateDropdowns($('createInvCustomerState')); // Populate dropdowns
+                loadCompanyDetailsIntoForm();
+                populateStateDropdowns($('createInvCustomerState'));
 
-                // Add initial item rows if the forms are visible and empty
                 if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) {
                     addInvoiceItemRow();
                 }
@@ -476,7 +449,6 @@
                 }
 
             } else {
-                // User is signed out: Show Sign In button, show unauthorized message, hide main content
                 const signInButton = document.createElement('button');
                 signInButton.id = 'authorize_button';
                 signInButton.textContent = 'Sign in with Google';
@@ -487,7 +459,6 @@
                 authorizedContent.style.display = 'none';
                 unauthorizedContent.style.display = 'block';
 
-                // Add a sign-in button also within the unauthorized content area for clarity
                 const signInButton2 = signInButton.cloneNode(true);
                 signInButton2.onclick = handleAuthClick;
                  $('unauthorizedContent').innerHTML = '<p class="text-lg text-gray-700 mb-4">Please sign in with Google to access the Document Tracker.</p>';
@@ -498,11 +469,6 @@
 
         // --- Google Drive Data Handling ---
 
-        /**
-         * Finds a file by its exact name within the scope accessible by the app (drive.file).
-         * @param {string} filename The name of the file to find.
-         * @returns {Promise<string|null>} The file ID if found, otherwise null.
-         */
         async function findFileByName(filename) {
             console.log(`Searching for file: ${filename}`);
             if (!gapi.client.getToken()) {
@@ -511,17 +477,17 @@
             }
             try {
                 const response = await gapi.client.drive.files.list({
-                    q: `name='${filename}' and trashed=false`, // Search in files created/opened by the app
+                    q: `name='${filename}' and trashed=false`,
                     fields: 'files(id, name)',
-                    spaces: 'drive', // Search within the 'drive' space (visible files)
-                    pageSize: 1 // We only need the first match
+                    spaces: 'drive',
+                    pageSize: 1
                 });
                 if (response.result.files && response.result.files.length > 0) {
                     console.log(`File '${filename}' found with ID: ${response.result.files[0].id}`);
-                    return response.result.files[0].id; // Return the ID
+                    return response.result.files[0].id;
                 }
                 console.log(`File '${filename}' not found.`);
-                return null; // File not found
+                return null;
             } catch (error) {
                 console.error(`Error finding file '${filename}':`, error);
                 if (error.status !== 404) {
@@ -531,11 +497,6 @@
             }
         }
 
-        /**
-         * Reads the content of a file from Google Drive using its ID.
-         * @param {string} fileId The ID of the file to read.
-         * @returns {Promise<string|null>} The file content as a string, or null on error/not found.
-         */
         async function readFileContent(fileId) {
             console.log(`Reading content for file ID: ${fileId}`);
             if (!fileId || !gapi.client.getToken()) {
@@ -545,14 +506,14 @@
             try {
                 const response = await gapi.client.drive.files.get({
                     fileId: fileId,
-                    alt: 'media' // Crucial parameter to fetch file content
+                    alt: 'media'
                 });
                 console.log(`Successfully read content for file ID: ${fileId}`);
-                return response.body; // Returns file content as a string
+                return response.body;
             } catch (error) {
                 if (error.status === 404) {
                     console.warn(`File ID ${fileId} not found. It might have been deleted or permissions changed.`);
-                    return null; // Treat as non-existent
+                    return null;
                 }
                 console.error(`Error reading file ID ${fileId}:`, error);
                 alert(`Error reading file content from Google Drive (ID: ${fileId}). Check console.`);
@@ -560,12 +521,6 @@
             }
         }
 
-        /**
-         * Creates a new file in Google Drive with the specified content.
-         * @param {string} filename The desired name for the new file.
-         * @param {string} content The content to write to the file (JSON string).
-         * @returns {Promise<string|null>} The new file ID if successful, otherwise null.
-         */
         async function createFile(filename, content) {
              console.log(`Creating new file: ${filename}`);
              if (!gapi.client.getToken()) {
@@ -608,12 +563,6 @@
             }
         }
 
-        /**
-         * Updates the content of an existing file in Google Drive.
-         * @param {string} fileId The ID of the file to update.
-         * @param {string} content The new content to write (JSON string).
-         * @returns {Promise<boolean>} True if successful, false otherwise.
-         */
         async function updateFile(fileId, content) {
             console.log(`Updating file ID: ${fileId}`);
             if (!fileId || !gapi.client.getToken()) {
@@ -651,10 +600,6 @@
 
         // --- Data Loading and Saving Wrappers (using Drive functions) ---
 
-        /**
-         * Loads initial data (transactions and company details) from Google Drive files.
-         * Finds files, reads content, parses JSON, and updates in-memory caches.
-         */
         async function loadInitialDataFromDrive() {
             console.log("Loading initial data from Google Drive...");
             showLoading('Finding data files...');
@@ -703,19 +648,10 @@
             console.log("Initial data loading complete.");
         }
 
-        /**
-         * Gets transactions from the in-memory cache.
-         * @returns {Array} The array of transaction objects.
-         */
         function getTransactions() {
             return transactionsData || [];
         }
 
-        /**
-         * Saves the provided transactions array to the in-memory cache and persists it to Google Drive.
-         * Creates the file if it doesn't exist, updates it otherwise.
-         * @param {Array} updatedTransactions The complete array of transactions to save.
-         */
         async function saveTransactions(updatedTransactions) {
             transactionsData = updatedTransactions;
             const content = JSON.stringify(transactionsData, null, 2);
@@ -741,10 +677,6 @@
             }
         }
 
-        /**
-         * Gets company details from the in-memory cache or returns defaults.
-         * @returns {object} The company details object.
-         */
         function getCompanyDetails() {
              const defaultDetails = {
                 name: "Your Company Name",
@@ -755,10 +687,6 @@
              return companyDetailsData || defaultDetails;
         }
 
-        /**
-         * Saves the current company details from the form to the in-memory cache and Google Drive.
-         * @returns {Promise<boolean>} True if save was successful, false otherwise.
-         */
         async function saveCompanyDetails() {
             const details = {
                 name: $('companyName')?.value.trim() || '',
@@ -803,7 +731,6 @@
             }
         }
 
-        /** Loads company details from cache/defaults into the form fields. */
         function loadCompanyDetailsIntoForm() {
             const details = getCompanyDetails();
             $('companyName').value = details.name;
@@ -817,10 +744,6 @@
 
         // --- State Dropdown ---
         const INDIAN_STATES = [ "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir" ];
-        /**
-         * Populates a given select element with Indian states.
-         * @param {HTMLSelectElement} selectElement The dropdown element to populate.
-         */
         function populateStateDropdowns(selectElement) {
             if (!selectElement) return;
             const currentValue = selectElement.value;
@@ -840,7 +763,6 @@
         }
 
         // --- Tab Switching ---
-        /** Handles switching between the 'Log Document' and 'Create Document' tabs. */
         function switchTab(event) {
             const targetTab = event.target.dataset.tab; if (!targetTab) return;
             $$('.tab-button').forEach(b => b.classList.remove('active'));
@@ -854,7 +776,6 @@
         }
 
         // --- Create Document Type Switching ---
-        /** Handles switching between Invoice, Challan, Credit Note, Debit Note sub-tabs. */
          function switchCreateType(event) {
              const targetType = event.target.dataset.createType; if (!targetType) return;
              $$('.create-type-button').forEach(b => { b.classList.remove('border-indigo-500', 'text-indigo-600'); b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); });
@@ -868,7 +789,6 @@
          }
 
         // --- Highlight Search Term ---
-        /** Highlights occurrences of searchTerm within text using a span. */
         function highlightText(text, searchTerm) {
             if (!text || !searchTerm) return text;
             const esc = searchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -877,7 +797,6 @@
         }
 
         // --- Display Transactions ---
-        /** Renders the list of transactions based on the in-memory cache and search term. */
         function displayTransactions(searchTerm = '') {
             const allTransactions = getTransactions();
             const listDiv = $('transactionList');
@@ -959,7 +878,6 @@
         }
 
         // --- Update Dashboard ---
-        /** Recalculates and displays dashboard statistics based on current transactions. */
         function updateDashboard() {
             const txns = getTransactions();
             const stats = { totalDocs: 0, types: {} };
@@ -1004,7 +922,6 @@
         }
 
         // --- Get Color ---
-        /** Returns Tailwind CSS classes based on document type for visual distinction. */
         function getTransactionTypeColor(type) {
             if (!type) return 'bg-gray-100 text-gray-800';
             if (type.includes('Invoice') || type.includes('Bill')) return 'bg-blue-100 text-blue-800';
@@ -1015,7 +932,6 @@
         }
 
         // --- Handle Log Document Form ---
-        /** Processes the 'Log Existing Document' form submission. */
         async function handleLogDocumentFormSubmit(event) {
             event.preventDefault();
             const form = $('logDocumentForm');
@@ -1058,7 +974,6 @@
         }
 
         // --- Handle Create Invoice Form ---
-        /** Adds a new empty item row to the invoice form. */
          function addInvoiceItemRow() {
              const container = $('createInvItemsContainer'); if (!container) return;
              const itemCount = container.children.length;
@@ -1083,7 +998,6 @@
              calculateInvoiceTotals();
          }
 
-        /** Calculates and updates the invoice totals based on item inputs. */
          function calculateInvoiceTotals() {
              let taxableTotal = 0; let cgstTotal = 0; let sgstTotal = 0; let igstTotal = 0;
              const customerState = $('createInvCustomerState').value;
@@ -1119,7 +1033,6 @@
              $('invGrandTotal').textContent = grandTotal.toFixed(2);
          }
 
-        /** Processes the 'Create Invoice' form submission. */
         async function handleCreateInvoiceFormSubmit(event) {
             event.preventDefault();
             const form = $('createInvoiceForm'); const formData = new FormData(form);
@@ -1184,7 +1097,6 @@
          }
 
          // --- Handle Create Challan Form ---
-         /** Adds a new empty item row to the challan form. */
          function addChallanItemRow() {
              const container = $('createChallanItemsContainer'); if (!container) return;
              const itemCount = container.children.length;
@@ -1197,7 +1109,6 @@
              `;
              container.appendChild(row);
          }
-         /** Processes the 'Create Challan' form submission. */
          async function handleCreateChallanFormSubmit(event) {
             event.preventDefault();
             const form = $('createChallanForm'); const formData = new FormData(form);
@@ -1242,7 +1153,6 @@
          }
 
         // --- Delete Transaction ---
-        /** Deletes a transaction from the list and saves the change to Google Drive. */
         async function deleteTransaction(transactionId) {
             if (!confirm('Delete this transaction permanently from Google Drive? This cannot be undone.')) {
                 return;
@@ -1264,7 +1174,6 @@
         }
 
          // --- Toggle Payment Status ---
-         /** Toggles the payment status of a transaction (Pending/Paid) and saves to Drive. */
          async function togglePaymentStatus(transactionId) {
               let currentTransactions = getTransactions();
               const idx = currentTransactions.findIndex(tx => tx.id === transactionId);
@@ -1303,13 +1212,12 @@
               console.log(`Payment status updated for ${transactionId}: ${newStatus} ${paymentRef ? `(Ref: ${paymentRef})` : ''}`);
          }
 
-        // --- Image Modal (Placeholder - Image functionality removed) ---
+        // --- Image Modal (Placeholder) ---
         function openModal(imageUrl) { alert("Image preview is currently disabled in this version."); }
         function closeModal() { /* No modal to close */ }
         function closeModalOnClickOutside(event) { /* No modal to close */ }
 
         // --- Print Document ---
-        /** Generates HTML for printing and opens the print dialog. */
         function printDocument(transactionId) {
             const transactions = getTransactions();
             const doc = transactions.find(tx => tx.id === transactionId);
@@ -1338,7 +1246,6 @@
             }
         }
 
-        /** Formats a Sales Invoice object into printable HTML. */
         function formatInvoiceForPrint(doc) {
             const company = getCompanyDetails();
             const itemsHTML = doc.items?.map(item => `<tr><td>${item.description || ''}</td><td class="num">${item.quantity || 0}</td><td class="num">${formatCurrency(item.rate)}</td><td class="num">${item.gstRate || 0}%</td><td class="num">${formatCurrency(item.amount)}</td><td class="num">${formatCurrency(item.cgst)}</td><td class="num">${formatCurrency(item.sgst)}</td><td class="num">${formatCurrency(item.igst)}</td><td class="num">${formatCurrency(item.amount + (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0))}</td></tr>`).join('') || '';
@@ -1379,7 +1286,6 @@
                 </body></html>`;
         }
 
-        /** Formats a Delivery Challan object into printable HTML. */
         function formatChallanForPrint(doc) {
              const company = getCompanyDetails();
              const itemsHTML = doc.items?.map(item => `<tr><td>${item.description || ''}</td><td class="num">${item.quantity || 0}</td></tr>`).join('') || '';
@@ -1405,7 +1311,6 @@
         }
 
         // --- Export to CSV ---
-        /** Escapes data for safe inclusion in a CSV cell. */
         function escapeCsvCell(cellData) {
             if (cellData == null) return '';
             const s = String(cellData);
@@ -1414,7 +1319,6 @@
             }
             return s;
         }
-        /** Exports the current transaction data to a CSV file. */
         function exportToCsv() {
              const txns = getTransactions();
              if (txns.length === 0) { alert("No data to export."); return; }
@@ -1449,10 +1353,10 @@
         }
 
         // --- Initial Load & Event Listeners ---
-        /** Sets up event listeners after the DOM is fully loaded. */
+        /** Sets up event listeners after the DOM is fully loaded and triggers Google library loading. */
         document.addEventListener('DOMContentLoaded', () => {
-             console.log("DOM loaded. Initializing Google Auth libraries via script tags...");
-             // Attach event listeners to static elements
+             console.log("DOM loaded. Attaching static listeners and initiating Google Auth library loading...");
+             // Attach event listeners to static elements that exist on page load
              $('saveCompanyDetailsBtn')?.addEventListener('click', saveCompanyDetails);
              $('logDocumentForm')?.addEventListener('submit', handleLogDocumentFormSubmit);
              $('createInvoiceForm')?.addEventListener('submit', handleCreateInvoiceFormSubmit);
@@ -1466,8 +1370,27 @@
              $$('.tab-button').forEach(b => b.addEventListener('click', switchTab));
              $$('.create-type-button').forEach(b => b.addEventListener('click', switchCreateType));
              console.log("Static event listeners attached.");
-             // Note: Google API loading is initiated via the async script tags,
-             // which call gapiLoaded() and gisLoaded() upon completion.
+
+             // Manually call the load functions now that they are defined globally
+             // These functions are defined globally so the script tags can find them
+             // if we were using onload="" attributes (which we removed).
+             // Calling them here ensures they run after the DOM is ready.
+             if (typeof gapiLoaded === 'function') {
+                 gapiLoaded();
+             } else {
+                 console.error("gapiLoaded function is not defined globally!");
+             }
+             if (typeof gisLoaded === 'function') {
+                 // The GIS script tag has `async defer`, so it might not be loaded yet.
+                 // We rely on its own `onload` mechanism (implicit in the script tag)
+                 // to call gisLoaded when it's ready.
+                 // However, if it *is* already loaded somehow, we can call it.
+                 // But generally, the `async defer onload` on the script tag handles this.
+                 // If issues persist, we might need a more robust check.
+                 console.log("GIS script tag will call gisLoaded when ready.");
+             } else {
+                 console.error("gisLoaded function is not defined globally!");
+             }
         });
 
     </script>
