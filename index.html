@@ -281,8 +281,8 @@
 
     <div id="printArea" class="hidden"></div>
 
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 
     <script>
         // --- Configuration ---
@@ -1353,9 +1353,9 @@
         }
 
         // --- Initial Load & Event Listeners ---
-        /** Sets up event listeners after the DOM is fully loaded and triggers Google library loading. */
+        /** Sets up event listeners after the DOM is fully loaded. */
         document.addEventListener('DOMContentLoaded', () => {
-             console.log("DOM loaded. Attaching static listeners and initiating Google Auth library loading...");
+             console.log("DOM loaded. Attaching static listeners...");
              // Attach event listeners to static elements that exist on page load
              $('saveCompanyDetailsBtn')?.addEventListener('click', saveCompanyDetails);
              $('logDocumentForm')?.addEventListener('submit', handleLogDocumentFormSubmit);
@@ -1370,27 +1370,7 @@
              $$('.tab-button').forEach(b => b.addEventListener('click', switchTab));
              $$('.create-type-button').forEach(b => b.addEventListener('click', switchCreateType));
              console.log("Static event listeners attached.");
-
-             // Manually call the load functions now that they are defined globally
-             // These functions are defined globally so the script tags can find them
-             // if we were using onload="" attributes (which we removed).
-             // Calling them here ensures they run after the DOM is ready.
-             if (typeof gapiLoaded === 'function') {
-                 gapiLoaded();
-             } else {
-                 console.error("gapiLoaded function is not defined globally!");
-             }
-             if (typeof gisLoaded === 'function') {
-                 // The GIS script tag has `async defer`, so it might not be loaded yet.
-                 // We rely on its own `onload` mechanism (implicit in the script tag)
-                 // to call gisLoaded when it's ready.
-                 // However, if it *is* already loaded somehow, we can call it.
-                 // But generally, the `async defer onload` on the script tag handles this.
-                 // If issues persist, we might need a more robust check.
-                 console.log("GIS script tag will call gisLoaded when ready.");
-             } else {
-                 console.error("gisLoaded function is not defined globally!");
-             }
+             // Google library loading is handled by the onload attributes on the script tags
         });
 
     </script>
