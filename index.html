@@ -1375,7 +1375,12 @@
              // Google library loading is handled by the onload attributes on the script tags
         });
 
-    </script>
+    <script>
+  function gapiLoaded() {
+    // This ensures the Google API client initializes after gapi loads
+    gapi.load('client', initializeGapiClient);
+  }
+</script>
 
 </body>
 </html>
