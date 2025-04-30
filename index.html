@@ -320,9 +320,9 @@
         // --- Google API & Auth Initialization ---
 
         // Called after Google API client library (gapi.js) loads.
-        // function gapiLoaded() { // Defined by script tag onload
-        //     gapi.load('client', initializeGapiClient); // Load the 'client' module
-        // }
+        function gapiLoaded() { // <<-- UNCOMMENTED
+            gapi.load('client', initializeGapiClient); // Load the 'client' module
+        } // <<-- UNCOMMENTED
 
         // Initializes the Google API client library (gapi.client).
         async function initializeGapiClient() {
@@ -343,28 +343,28 @@
         }
 
         // Called after Google Identity Services library (accounts.google.com/gsi/client) loads.
-        // function gisLoaded() { // Defined by script tag onload
-        //     try {
-        //         // Initialize the token client for handling OAuth 2.0 flow
-        //         tokenClient = google.accounts.oauth2.initTokenClient({
-        //             client_id: CLIENT_ID,
-        //             scope: SCOPES,
-        //             callback: tokenResponseCallback, // Function called after token response
-        //             error_callback: (error) => { // Function called on GIS error
-        //                 console.error('GIS Error:', error);
-        //                 $('authStatus').textContent = 'Authentication error.';
-        //                 hideLoading();
-        //                 updateAuthUI(false); // Ensure UI reflects failed auth
-        //             }
-        //         });
-        //         gisInited = true; // Set flag
-        //         console.log("GIS client initialized.");
-        //         maybeEnableButtons(); // Check if both libraries are ready
-        //     } catch (error) {
-        //         console.error("Error initializing GIS client:", error);
-        //         $('authStatus').textContent = 'Error initializing Google Sign-In.';
-        //     }
-        // }
+        function gisLoaded() { // <<-- UNCOMMENTED (if it was commented)
+            try {
+                // Initialize the token client for handling OAuth 2.0 flow
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: tokenResponseCallback, // Function called after token response
+                    error_callback: (error) => { // Function called on GIS error
+                        console.error('GIS Error:', error);
+                        $('authStatus').textContent = 'Authentication error.';
+                        hideLoading();
+                        updateAuthUI(false); // Ensure UI reflects failed auth
+                    }
+                });
+                gisInited = true; // Set flag
+                console.log("GIS client initialized.");
+                maybeEnableButtons(); // Check if both libraries are ready
+            } catch (error) {
+                console.error("Error initializing GIS client:", error);
+                $('authStatus').textContent = 'Error initializing Google Sign-In.';
+            }
+        } // <<-- UNCOMMENTED (if it was commented)
 
         // Checks if both GAPI and GIS libraries are loaded and updates the UI.
         function maybeEnableButtons() {
