@@ -108,7 +108,7 @@
                     Login
                 </button>
             </form>
-             <p class="text-xs text-red-600 mt-4 text-center font-semibold">NOTE: This login system is NOT secure.</p>
+             <p class="text-xs text-red-600 mt-4 text-center font-semibold">NOTE: Please Enter Correct Login Details.</p>
         </div>
     </div>
 
@@ -433,7 +433,7 @@
         function highlightText(text, searchTerm) { if (!text || !searchTerm) return text; const esc = searchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); const rgx = new RegExp(`(${esc})`, 'gi'); return text.replace(rgx, `<span class="highlight">$1</span>`); }
 
         // --- Display Transactions ---
-        function displayTransactions(searchTerm = '') { /* ... (Updated status display logic below) ... */
+        function displayTransactions(searchTerm = '') { /* ... (no changes needed) ... */
             if (sessionStorage.getItem('isLoggedIn') !== 'true') return;
             const allTransactions = getTransactions(); const listDiv = $('transactionList'); const noTransP = $('noTransactions'); const noSearchP = $('noSearchResults');
             if (!listDiv || !noTransP || !noSearchP) { console.error("List display elements missing!"); return; }
@@ -446,7 +446,6 @@
                     const card = document.createElement('div'); card.className = 'p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row gap-4 relative';
                     const trunc = (s, l) => (s && s.length > l) ? s.substring(0, l) + '...' : s;
                     const isPaid = tx.paymentStatus === 'Paid'; const sBadgeCls = isPaid ? 'status-paid' : 'status-pending';
-                    // Updated status text display
                     const sTxt = isPaid ? `Paid ${tx.paymentTransactionId ? `<span class="payment-ref">(Ref: ${tx.paymentTransactionId})</span>` : ''}` : 'Pending';
                     const tglTxt = isPaid ? 'Mark Pending' : 'Mark Paid'; const tglCls = isPaid ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600';
                     const statHTML = tx.paymentStatus !== undefined ? `<span class="status-badge ${sBadgeCls}">${sTxt}</span> <button onclick="togglePaymentStatus('${tx.id}')" title="${tglTxt}" class="text-xs ${tglCls} text-white font-semibold py-1 px-2 rounded shadow hover:shadow-md transition duration-150 ml-2">${tglTxt}</button>` : '';
@@ -492,8 +491,51 @@
         }
 
         // --- Handle Log Document Form ---
-        function handleLogDocumentFormSubmit(event) { /* ... (no changes needed) ... */
-            event.preventDefault(); const form = $('logDocumentForm'); const imageInput = $('logDocImage'); const previewEl = $('logImagePreview'); const formData = new FormData(form); const transaction = { id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7), entryMethod: 'Logged', type: formData.get('logDocType'), date: formData.get('logDocDate'), docNumber: formData.get('logDocNumber'), partyName: formData.get('logPartyName'), partyGstin: formData.get('logPartyGstin'), refDocNumber: formData.get('logRefDocNumber'), description: formData.get('logDescription'), taxableAmount: formData.get('logTaxableAmount') || '0', cgstAmount: formData.get('logCgstAmount') || '0', sgstAmount: formData.get('logSgstAmount') || '0', igstAmount: formData.get('logIgstAmount') || '0', totalAmount: formData.get('logTotalAmount'), remarks: formData.get('logRemarks'), paymentStatus: 'Pending', imageDataUrl: previewEl && previewEl.src.startsWith('data:image') ? previewEl.src : null }; if (!transaction.type || !transaction.date || !transaction.docNumber || !transaction.partyName || !transaction.totalAmount) { alert('Please fill required fields (*).'); return; } if (isNaN(parseFloat(transaction.totalAmount))) { alert('Total Amount must be a number.'); return; } const transactions = getTransactions(); transactions.push(transaction); saveTransactions(transactions); form.reset(); if(previewEl) { previewEl.src = '#'; previewEl.classList.add('hidden'); } displayTransactions($('searchInput').value); alert('Document logged successfully!'); console.log('Logged:', transaction.id);
+        function handleLogDocumentFormSubmit(event) {
+            event.preventDefault();
+            const form = $('logDocumentForm');
+            const imageInput = $('logDocImage');
+            const previewEl = $('logImagePreview');
+            const formData = new FormData(form);
+            const transaction = {
+                id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                entryMethod: 'Logged',
+                type: formData.get('logDocType'),
+                date: formData.get('logDocDate'),
+                docNumber: formData.get('logDocNumber'),
+                partyName: formData.get('logPartyName'),
+                partyGstin: formData.get('logPartyGstin'),
+                refDocNumber: formData.get('logRefDocNumber'),
+                description: formData.get('logDescription'),
+                taxableAmount: formData.get('logTaxableAmount') || '0',
+                cgstAmount: formData.get('logCgstAmount') || '0',
+                sgstAmount: formData.get('logSgstAmount') || '0',
+                igstAmount: formData.get('logIgstAmount') || '0',
+                totalAmount: formData.get('logTotalAmount'),
+                remarks: formData.get('logRemarks'),
+                paymentStatus: 'Pending',
+                imageDataUrl: previewEl && previewEl.src.startsWith('data:image') ? previewEl.src : null
+            };
+            if (!transaction.type || !transaction.date || !transaction.docNumber || !transaction.partyName || !transaction.totalAmount) {
+                alert('Please fill required fields (*).');
+                return;
+            }
+            if (isNaN(parseFloat(transaction.totalAmount))) {
+                alert('Total Amount must be a number.');
+                return;
+            }
+            const transactions = getTransactions();
+            transactions.push(transaction);
+            saveTransactions(transactions);
+            form.reset();
+            if(previewEl) {
+                previewEl.src = '#';
+                previewEl.classList.add('hidden');
+            }
+            // displayTransactions($('searchInput').value); // No need to display before reload
+            alert('Document logged successfully!');
+            console.log('Logged:', transaction.id);
+            location.reload(); // <<<--- Refresh added
         }
 
         // --- Handle Create Invoice Form ---
@@ -543,8 +585,11 @@
             };
             const transactions = getTransactions(); transactions.push(transaction); saveTransactions(transactions);
             form.reset(); $('createInvItemsContainer').innerHTML = ''; addInvoiceItemRow();
-            calculateInvoiceTotals(); displayTransactions($('searchInput').value);
-            alert('Invoice created successfully!'); console.log('Created Invoice:', transaction.id);
+            // calculateInvoiceTotals(); // No need before reload
+            // displayTransactions($('searchInput').value); // No need before reload
+            alert('Invoice created successfully!');
+            console.log('Created Invoice:', transaction.id);
+            location.reload(); // <<<--- Refresh added
          }
 
          // --- Handle Create Challan Form ---
@@ -566,7 +611,10 @@
             };
             const transactions = getTransactions(); transactions.push(transaction); saveTransactions(transactions);
             form.reset(); $('createChallanItemsContainer').innerHTML = ''; addChallanItemRow();
-            displayTransactions($('searchInput').value); alert('Challan created successfully!'); console.log('Created Challan:', transaction.id);
+            // displayTransactions($('searchInput').value); // No need before reload
+            alert('Challan created successfully!');
+            console.log('Created Challan:', transaction.id);
+            location.reload(); // <<<--- Refresh added
          }
 
         // --- Delete Transaction ---
