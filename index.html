@@ -312,6 +312,7 @@
         // --- Google API & Auth Initialization ---
 
         // Called after Google API client library (gapi.js) loads.
+        // This function MUST be in the global scope for the onload attribute to find it.
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient); // Load the 'client' module
         }
@@ -333,6 +334,7 @@
         }
 
         // Called after Google Identity Services library loads.
+        // This function MUST be in the global scope for the onload attribute to find it.
         function gisLoaded() {
             try {
                 tokenClient = google.accounts.oauth2.initTokenClient({
@@ -471,8 +473,8 @@
 
         async function findFileByName(filename) {
             console.log(`Searching for file: ${filename}`);
-            if (!gapi.client.getToken()) {
-                 console.warn("Cannot search file: User not authenticated.");
+            if (!gapi?.client?.getToken()) { // Added checks for gapi and gapi.client
+                 console.warn("Cannot search file: User not authenticated or GAPI not ready.");
                  return null;
             }
             try {
@@ -499,8 +501,8 @@
 
         async function readFileContent(fileId) {
             console.log(`Reading content for file ID: ${fileId}`);
-            if (!fileId || !gapi.client.getToken()) {
-                console.warn("Cannot read file: File ID missing or user not authenticated.");
+            if (!fileId || !gapi?.client?.getToken()) { // Added checks
+                console.warn("Cannot read file: File ID missing or user not authenticated/GAPI not ready.");
                 return null;
             }
             try {
@@ -523,8 +525,8 @@
 
         async function createFile(filename, content) {
              console.log(`Creating new file: ${filename}`);
-             if (!gapi.client.getToken()) {
-                 console.warn("Cannot create file: User not authenticated.");
+             if (!gapi?.client?.getToken()) { // Added checks
+                 console.warn("Cannot create file: User not authenticated or GAPI not ready.");
                  return null;
              }
             try {
@@ -565,8 +567,8 @@
 
         async function updateFile(fileId, content) {
             console.log(`Updating file ID: ${fileId}`);
-            if (!fileId || !gapi.client.getToken()) {
-                 console.warn("Cannot update file: File ID missing or user not authenticated.");
+            if (!fileId || !gapi?.client?.getToken()) { // Added checks
+                 console.warn("Cannot update file: File ID missing or user not authenticated/GAPI not ready.");
                  return false;
             }
             try {
