@@ -314,7 +314,9 @@
         // Called after Google API client library (gapi.js) loads.
         // This function MUST be in the global scope for the onload attribute to find it.
         function gapiLoaded() {
-            gapi.load('client', initializeGapiClient); // Load the 'client' module
+            console.log("gapiLoaded callback executed.");
+            // Use gapi.load to ensure the client library is ready before initializing
+            gapi.load('client', initializeGapiClient);
         }
 
         // Initializes the Google API client library (gapi.client).
@@ -336,16 +338,17 @@
         // Called after Google Identity Services library loads.
         // This function MUST be in the global scope for the onload attribute to find it.
         function gisLoaded() {
+            console.log("gisLoaded callback executed.");
             try {
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
-                    callback: tokenResponseCallback,
-                    error_callback: (error) => {
+                    callback: tokenResponseCallback, // Defined below
+                    error_callback: (error) => { // Handle errors from GIS
                         console.error('GIS Error:', error);
                         $('authStatus').textContent = 'Authentication error.';
                         hideLoading();
-                        updateAuthUI(false);
+                        updateAuthUI(false); // Show signed-out state on error
                     }
                 });
                 gisInited = true;
@@ -361,8 +364,8 @@
         function maybeEnableButtons() {
             if (gapiInited && gisInited) {
                  console.log("Both GAPI and GIS initialized. Updating UI.");
-                 updateAuthUI(false);
-                 $('mainAppContent').style.display = 'block';
+                 updateAuthUI(false); // Show initial signed-out state
+                 $('mainAppContent').style.display = 'block'; // Show the main app container
             }
         }
 
@@ -371,16 +374,16 @@
             hideLoading();
             if (tokenResponse && tokenResponse.access_token) {
                 console.log("Access token received.");
-                gapi.client.setToken(tokenResponse);
+                gapi.client.setToken(tokenResponse); // Set token for GAPI calls
                 $('authStatus').textContent = 'Authorized.';
                 showLoading('Loading data from Google Drive...');
-                updateAuthUI(true);
-                await loadInitialDataFromDrive();
+                updateAuthUI(true); // Update UI to signed-in state
+                await loadInitialDataFromDrive(); // Load data now that we are authorized
                 hideLoading();
             } else {
                 console.error('Error in token response or consent denied:', tokenResponse);
                 $('authStatus').textContent = 'Authorization failed or denied.';
-                 updateAuthUI(false);
+                 updateAuthUI(false); // Show signed-out state
             }
         }
 
@@ -389,6 +392,8 @@
         function handleAuthClick() {
             showLoading('Signing in...');
             if (tokenClient) {
+                // If GAPI client doesn't have a token, prompt for consent.
+                // Otherwise, request silently (might refresh if needed).
                 if (gapi.client.getToken() === null) {
                     console.log("Requesting access token with consent prompt.");
                     tokenClient.requestAccessToken({prompt: 'consent'});
@@ -397,7 +402,7 @@
                     tokenClient.requestAccessToken({prompt: ''});
                 }
             } else {
-                 console.error("Token client not initialized.");
+                 console.error("Token client not initialized yet.");
                  hideLoading();
                  $('authStatus').textContent = 'Sign-in service not ready.';
             }
@@ -408,14 +413,16 @@
             if (token !== null) {
                 showLoading('Signing out...');
                 google.accounts.oauth2.revoke(token.access_token, () => {
-                    gapi.client.setToken(null);
+                    gapi.client.setToken(null); // Clear GAPI token
+                    // Clear local state
                     transactionsData = [];
                     companyDetailsData = null;
                     transactionsFileId = null;
                     companyDetailsFileId = null;
-                    updateAuthUI(false);
+                    updateAuthUI(false); // Update UI to signed-out
                     console.log('User signed out and token revoked.');
                     hideLoading();
+                    // Clear displayed data
                     displayTransactions();
                     updateDashboard();
                 });
@@ -427,7 +434,7 @@
             const authorizedContent = $('authorizedContent');
             const unauthorizedContent = $('unauthorizedContent');
 
-            authContainer.innerHTML = '';
+            authContainer.innerHTML = ''; // Clear previous buttons
 
             if (isSignedIn) {
                 const signOutButton = document.createElement('button');
@@ -440,9 +447,11 @@
                 authorizedContent.style.display = 'block';
                 unauthorizedContent.style.display = 'none';
 
-                loadCompanyDetailsIntoForm();
-                populateStateDropdowns($('createInvCustomerState'));
+                // Only populate forms etc. *after* data has potentially loaded
+                // loadCompanyDetailsIntoForm(); // Called within loadInitialDataFromDrive
+                // populateStateDropdowns($('createInvCustomerState')); // Called within loadInitialDataFromDrive
 
+                // Add initial item rows if needed (check if forms are visible)
                 if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) {
                     addInvoiceItemRow();
                 }
@@ -473,15 +482,16 @@
 
         async function findFileByName(filename) {
             console.log(`Searching for file: ${filename}`);
-            if (!gapi?.client?.getToken()) { // Added checks for gapi and gapi.client
-                 console.warn("Cannot search file: User not authenticated or GAPI not ready.");
+            // Ensure GAPI client and token are available
+            if (!gapi?.client?.drive || !gapi.client.getToken()) {
+                 console.warn("Cannot search file: User not authenticated or GAPI Drive client not ready.");
                  return null;
             }
             try {
                 const response = await gapi.client.drive.files.list({
                     q: `name='${filename}' and trashed=false`,
                     fields: 'files(id, name)',
-                    spaces: 'drive',
+                    spaces: 'drive', // Search user's visible files
                     pageSize: 1
                 });
                 if (response.result.files && response.result.files.length > 0) {
@@ -491,7 +501,8 @@
                 console.log(`File '${filename}' not found.`);
                 return null;
             } catch (error) {
-                console.error(`Error finding file '${filename}':`, error);
+                console.error(`Error finding file '${filename}':`, JSON.stringify(error));
+                // Don't alert on 404 (file not found), but alert on other errors
                 if (error.status !== 404) {
                      alert(`Error searching for file '${filename}' in Google Drive. Check console.`);
                 }
@@ -501,23 +512,23 @@
 
         async function readFileContent(fileId) {
             console.log(`Reading content for file ID: ${fileId}`);
-            if (!fileId || !gapi?.client?.getToken()) { // Added checks
-                console.warn("Cannot read file: File ID missing or user not authenticated/GAPI not ready.");
+            if (!fileId || !gapi?.client?.drive || !gapi.client.getToken()) {
+                console.warn("Cannot read file: File ID missing or user not authenticated/GAPI Drive client not ready.");
                 return null;
             }
             try {
                 const response = await gapi.client.drive.files.get({
                     fileId: fileId,
-                    alt: 'media'
+                    alt: 'media' // Fetch file content
                 });
                 console.log(`Successfully read content for file ID: ${fileId}`);
-                return response.body;
+                return response.body; // Content is in response.body
             } catch (error) {
                 if (error.status === 404) {
                     console.warn(`File ID ${fileId} not found. It might have been deleted or permissions changed.`);
                     return null;
                 }
-                console.error(`Error reading file ID ${fileId}:`, error);
+                console.error(`Error reading file ID ${fileId}:`, JSON.stringify(error));
                 alert(`Error reading file content from Google Drive (ID: ${fileId}). Check console.`);
                 return null;
             }
@@ -525,14 +536,15 @@
 
         async function createFile(filename, content) {
              console.log(`Creating new file: ${filename}`);
-             if (!gapi?.client?.getToken()) { // Added checks
-                 console.warn("Cannot create file: User not authenticated or GAPI not ready.");
+             if (!gapi?.client?.drive || !gapi.client.getToken()) {
+                 console.warn("Cannot create file: User not authenticated or GAPI Drive client not ready.");
                  return null;
              }
             try {
                 const metadata = {
                     name: filename,
                     mimeType: 'application/json',
+                    // parents: ['appDataFolder'] // Use if using drive.appfolder scope
                 };
                 const boundary = '-------314159265358979323846';
                 const delimiter = `\r\n--${boundary}\r\n`;
@@ -543,10 +555,11 @@
                     'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
                     JSON.stringify(metadata) +
                     delimiter +
-                    'Content-Type: application/json\r\n\r\n' +
+                    'Content-Type: application/json\r\n\r\n' + // Content type of the file itself
                     content +
                     close_delim;
 
+                // Use the specific upload endpoint
                 const response = await gapi.client.request({
                     path: '/upload/drive/v3/files',
                     method: 'POST',
@@ -559,7 +572,7 @@
                 console.log(`File '${filename}' created successfully with ID: ${response.result.id}`);
                 return response.result.id;
             } catch (error) {
-                console.error(`Error creating file '${filename}':`, error);
+                console.error(`Error creating file '${filename}':`, JSON.stringify(error));
                 alert(`Error creating file '${filename}' in Google Drive. Check console.`);
                 return null;
             }
@@ -567,8 +580,8 @@
 
         async function updateFile(fileId, content) {
             console.log(`Updating file ID: ${fileId}`);
-            if (!fileId || !gapi?.client?.getToken()) { // Added checks
-                 console.warn("Cannot update file: File ID missing or user not authenticated/GAPI not ready.");
+            if (!fileId || !gapi?.client?.drive || !gapi.client.getToken()) {
+                 console.warn("Cannot update file: File ID missing or user not authenticated/GAPI Drive client not ready.");
                  return false;
             }
             try {
@@ -576,15 +589,16 @@
                  const delimiter = `\r\n--${boundary}\r\n`;
                  const close_delim = `\r\n--${boundary}--`;
 
+                 // For updating content via upload, only the content part is needed in the body
                  const multipartRequestBody =
                      delimiter +
-                     'Content-Type: application/json\r\n\r\n' +
+                     'Content-Type: application/json\r\n\r\n' + // Mime type of the content
                      content +
                      close_delim;
 
                  const response = await gapi.client.request({
-                    path: `/upload/drive/v3/files/${fileId}`,
-                    method: 'PATCH',
+                    path: `/upload/drive/v3/files/${fileId}`, // Use the upload path with file ID
+                    method: 'PATCH', // PATCH for update
                     params: { uploadType: 'multipart' },
                     headers: {
                         'Content-Type': `multipart/related; boundary=${boundary}`
@@ -594,7 +608,7 @@
                 console.log(`File ID ${fileId} updated successfully.`);
                 return true;
             } catch (error) {
-                console.error(`Error updating file ID ${fileId}:`, error);
+                console.error(`Error updating file ID ${fileId}:`, JSON.stringify(error));
                 alert(`Error updating file in Google Drive (ID: ${fileId}). Check console.`);
                 return false;
             }
@@ -605,6 +619,10 @@
         async function loadInitialDataFromDrive() {
             console.log("Loading initial data from Google Drive...");
             showLoading('Finding data files...');
+            // Reset file IDs before searching
+            transactionsFileId = null;
+            companyDetailsFileId = null;
+            // Find files concurrently
             [transactionsFileId, companyDetailsFileId] = await Promise.all([
                 findFileByName(TRANSACTIONS_FILENAME),
                 findFileByName(COMPANY_DETAILS_FILENAME)
@@ -615,12 +633,18 @@
                 const content = await readFileContent(transactionsFileId);
                 try {
                     transactionsData = content ? JSON.parse(content) : [];
+                    // Basic data validation (ensure it's an array)
+                    if (!Array.isArray(transactionsData)) {
+                        console.warn("Transaction data from Drive is not an array. Resetting.");
+                        transactionsData = [];
+                        transactionsFileId = null; // Treat as if file is invalid
+                    }
                     console.log(`Loaded ${transactionsData.length} transactions.`);
                 } catch (e) {
                     console.error("Error parsing transactions JSON from Drive:", e);
                     alert("Could not parse transaction data from Google Drive. Data might be corrupt. Starting fresh.");
                     transactionsData = [];
-                    transactionsFileId = null;
+                    transactionsFileId = null; // Treat as if file is invalid
                 }
             } else {
                 console.log("Transactions file not found in Drive. Initializing empty list.");
@@ -632,12 +656,18 @@
                 const content = await readFileContent(companyDetailsFileId);
                  try {
                     companyDetailsData = content ? JSON.parse(content) : null;
+                     // Basic validation (ensure it's an object if not null)
+                    if (companyDetailsData !== null && typeof companyDetailsData !== 'object') {
+                         console.warn("Company details data from Drive is not an object. Using defaults.");
+                         companyDetailsData = null;
+                         companyDetailsFileId = null; // Treat as invalid
+                    }
                     console.log("Loaded company details:", companyDetailsData);
                 } catch (e) {
                     console.error("Error parsing company details JSON from Drive:", e);
                     alert("Could not parse company details from Google Drive. Data might be corrupt. Using defaults.");
                     companyDetailsData = null;
-                    companyDetailsFileId = null;
+                    companyDetailsFileId = null; // Treat as invalid
                 }
             } else {
                  console.log("Company details file not found in Drive. Will use defaults.");
@@ -655,8 +685,14 @@
         }
 
         async function saveTransactions(updatedTransactions) {
+            // Ensure data is an array
+            if (!Array.isArray(updatedTransactions)) {
+                console.error("Attempted to save non-array data as transactions.");
+                alert("Internal Error: Invalid transaction data format.");
+                return;
+            }
             transactionsData = updatedTransactions;
-            const content = JSON.stringify(transactionsData, null, 2);
+            const content = JSON.stringify(transactionsData, null, 2); // Pretty print
             console.log(`Attempting to save ${transactionsData.length} transactions.`);
             showLoading('Saving transactions to Google Drive...');
             let success = false;
@@ -701,6 +737,13 @@
                 return false;
             }
 
+            // Ensure details is a valid object before saving
+            if (typeof details !== 'object' || details === null) {
+                 console.error("Attempted to save invalid company details format.");
+                 alert("Internal Error: Invalid company details format.");
+                 return false;
+            }
+
             companyDetailsData = details;
             const content = JSON.stringify(companyDetailsData, null, 2);
             console.log("Attempting to save company details.");
@@ -734,12 +777,12 @@
         }
 
         function loadCompanyDetailsIntoForm() {
-            const details = getCompanyDetails();
+            const details = getCompanyDetails(); // Gets from cache or default
             $('companyName').value = details.name;
             $('companyAddress').value = details.address;
             $('companyGstin').value = details.gstin;
             populateStateDropdowns($('companyState'));
-            $('companyState').value = details.state || "Haryana";
+            $('companyState').value = details.state || "Haryana"; // Default state if needed
             console.log("Company details loaded into form.");
         }
 
@@ -761,6 +804,8 @@
                 selectElement.value = currentValue;
             } else if (INDIAN_STATES.includes(currentCompanyState)) {
                  selectElement.value = currentCompanyState;
+            } else {
+                selectElement.value = ""; // Ensure default is selected if no match
             }
         }
 
@@ -812,7 +857,7 @@
             listDiv.innerHTML = '';
             const normSearch = searchTerm.trim().toLowerCase();
 
-            const isSignedIn = gapi.client.getToken() !== null;
+            const isSignedIn = gapi?.client?.getToken() !== null; // Check if token exists
             if (!isSignedIn) {
                  noTransP.textContent = 'Please sign in with Google to load data.';
                  noTransP.classList.remove('hidden');
@@ -918,7 +963,7 @@
             });
 
             if (dashDiv.children.length === 0) {
-                 const isSignedIn = gapi.client.getToken() !== null;
+                 const isSignedIn = gapi?.client?.getToken() !== null; // Check token
                  dashDiv.innerHTML = `<p class="text-gray-500 col-span-full text-center">${isSignedIn ? 'No data for dashboard.' : 'Sign in to load dashboard data.'}</p>`;
             }
         }
@@ -1373,14 +1418,10 @@
              $$('.create-type-button').forEach(b => b.addEventListener('click', switchCreateType));
              console.log("Static event listeners attached.");
              // Google library loading is handled by the onload attributes on the script tags
+             // which will call gapiLoaded() and gisLoaded() respectively.
         });
 
-    <script>
-  function gapiLoaded() {
-    // This ensures the Google API client initializes after gapi loads
-    gapi.load('client', initializeGapiClient);
-  }
-</script>
+    </script>
 
 </body>
 </html>
