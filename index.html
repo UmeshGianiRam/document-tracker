@@ -3,25 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Tracker & Creator</title>
+    <title>Document Tracker & Creator (Google Drive)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Scrollbar */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #aaa; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #888; }
-        /* Required fields */
+        /* Required field indicator */
         label.required::after { content: " *"; color: red; }
-        /* Images */
-        .preview-img { max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 0.375rem; }
-        .transaction-img { max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 0.375rem; cursor: pointer; transition: transform 0.2s ease-in-out; }
-        .transaction-img:hover { transform: scale(1.05); }
-        /* Modal */
+        /* Modal styles for image preview (though image functionality is removed in this version) */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
         .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; }
         .modal-close { position: absolute; top: 20px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; transition: 0.3s; cursor: pointer; }
@@ -30,23 +26,20 @@
         .status-badge { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-weight: 600; text-transform: uppercase; margin-left: 8px; white-space: nowrap; }
         .status-pending { background-color: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
         .status-paid { background-color: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
-        /* Dashboard */
+        /* Dashboard Cards */
         .dashboard-card { background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.5rem; text-align: center; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
         .dashboard-label { font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem; }
         .dashboard-value { font-size: 1.5rem; font-weight: 600; color: #1f2937; }
-        /* Highlight */
+        /* Search Highlight */
         .highlight { background-color: yellow; font-weight: bold; }
-        /* Login Screen */
-        #loginScreen { min-height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #e5e7eb; }
-        .auth-box { background-color: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); width: 100%; max-width: 28rem; }
-        /* Hide main app initially */
+        /* Hide main app initially until auth status is known */
         #mainAppContent { display: none; }
-        /* Tabs */
+        /* Tab Styles */
         .tab-button { padding: 0.5rem 1rem; border: 1px solid transparent; border-bottom: none; cursor: pointer; background-color: #e5e7eb; color: #4b5563; border-radius: 0.375rem 0.375rem 0 0; margin-right: 2px; transition: background-color 0.2s ease; }
         .tab-button.active { background-color: white; border-color: #d1d5db; border-bottom: 1px solid white; color: #1f2937; font-weight: 500; position: relative; top: 1px; }
         .tab-content { display: none; border: 1px solid #d1d5db; padding: 1.5rem; border-radius: 0 0.375rem 0.375rem 0.375rem; background-color: white; }
         .tab-content.active { display: block; }
-        /* Invoice/Challan Items */
+        /* Invoice/Challan Item Row Styles */
         .item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap; }
         .item-row input, .item-row select { flex-grow: 1; min-width: 60px; }
         .item-row .w-desc { width: 40%; }
@@ -55,6 +48,7 @@
         .item-row .w-gst { width: 15%; }
         .item-row .w-amt { width: 15%; text-align: right; padding-right: 0.5rem; }
         .item-row .w-btn { width: 5%; text-align: center; }
+         /* Responsive Item Row Styles */
          @media (max-width: 768px) {
             .item-row { gap: 0.25rem; }
             .item-row input, .item-row select, .item-row span { font-size: 0.8rem; }
@@ -68,10 +62,11 @@
             #printArea, #printArea * { visibility: visible; }
             #printArea { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
             @page { size: A4; margin: 1cm; }
-            button, input, select, textarea, nav, details summary, #logoutBtn { display: none !important; }
+            /* Hide non-printable elements */
+            button, input, select, textarea, nav, details summary, #authContainer, #loadingIndicator { display: none !important; }
             .no-print { display: none !important; }
         }
-        /* Basic table styles for print */
+        /* Basic table styles for printing documents */
         .print-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 10pt; }
         .print-table th, .print-table td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
         .print-table th { background-color: #f2f2f2; font-weight: bold; }
@@ -83,326 +78,752 @@
         .print-details-grid div { margin-bottom: 2px; white-space: pre-line; /* Allow line breaks from textarea */ }
         .print-totals { margin-top: 1rem; text-align: right; font-size: 10pt; }
         .print-totals div { margin-bottom: 2px; }
-        /* Display Payment Transaction ID */
+        /* Payment Transaction ID display */
         .payment-ref { font-size: 0.75rem; color: #4b5563; margin-left: 5px; font-style: italic;}
-        /* Company Details Section */
+        /* Company Details Section Styling */
         #companyDetailsSection { background-color: #fefce8; /* bg-yellow-50 */ border: 1px solid #fef08a; /* border-yellow-200 */ }
+        /* Authentication Button Styles */
+        .auth-button {
+            padding: 0.5rem 1rem; border: 1px solid transparent; border-radius: 0.375rem;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); font-weight: 500; transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+        .auth-button-signin { background-color: #4285F4; color: white; }
+        .auth-button-signin:hover { background-color: #357ae8; }
+        .auth-button-signout { background-color: #db4437; color: white; }
+        .auth-button-signout:hover { background-color: #c53727; }
+        /* Loading Indicator Style */
+        #loadingIndicator { display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 5px 15px; border-radius: 5px; z-index: 2000; font-size: 0.9rem; }
+        /* Authentication Status Text Style */
+        #authStatus { font-size: 0.8rem; color: #6b7280; margin-left: 1rem; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-100 min-h-screen">
 
-    <div id="loginScreen">
-        <div class="auth-box">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Login</h2>
-            <form id="loginForm">
-                <div class="mb-4">
-                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                    <input type="text" id="username" name="username" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
-                </div>
-                <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="password" name="password" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
-                </div>
-                <p id="loginError" class="text-red-500 text-sm mb-4 hidden"></p>
-                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    Login
-                </button>
-            </form>
-             <p class="text-xs text-red-600 mt-4 text-center font-semibold">NOTE: Please Enter Correct Login Details.</p>
-        </div>
-    </div>
+    <div id="loadingIndicator">Loading...</div>
 
     <div id="mainAppContent" class="container mx-auto max-w-7xl bg-white p-6 md:p-8 rounded-xl shadow-lg mt-8 mb-8">
-        <div class="flex justify-between items-center mb-8 border-b pb-4 no-print">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Document Tracker & Creator</h1>
-             <div>
-                 <span id="loggedInUser" class="text-sm text-gray-600 mr-4"></span>
-                 <button id="logoutBtn" class="py-2 px-4 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
-                    Logout
-                </button>
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-8 border-b pb-4 no-print">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 sm:mb-0">Document Tracker & Creator</h1>
+             <div id="authContainer" class="flex items-center">
+                 <span id="authStatus">Initializing...</span>
             </div>
         </div>
 
-        <div class="mb-10 p-6 border border-gray-200 rounded-lg bg-white shadow-sm no-print">
-             <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Dashboard</h2>
-             <div id="dashboardStats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                 <div class="dashboard-card"> <div class="dashboard-label">Loading...</div> <div class="dashboard-value">-</div> </div>
-             </div>
-        </div>
+        <div id="authorizedContent" style="display: none;">
 
-        <div id="companyDetailsSection" class="mb-10 p-6 rounded-lg shadow-sm no-print">
-            <h3 class="text-xl font-semibold text-gray-700 mb-4">My Company Details (for Printing)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1 required">Company Name</label>
-                    <input type="text" id="companyName" name="companyName" required class="w-full p-2 border border-gray-300 rounded-md">
-                </div>
-                 <div>
-                    <label for="companyGstin" class="block text-sm font-medium text-gray-700 mb-1 required">Company GSTIN</label>
-                    <input type="text" id="companyGstin" name="companyGstin" required class="w-full p-2 border border-gray-300 rounded-md">
-                </div>
-                <div class="md:col-span-2">
-                    <label for="companyAddress" class="block text-sm font-medium text-gray-700 mb-1 required">Company Address</label>
-                    <textarea id="companyAddress" name="companyAddress" rows="3" required class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter full address, one part per line"></textarea>
-                </div>
-                <div>
-                    <label for="companyState" class="block text-sm font-medium text-gray-700 mb-1 required">Company State</label>
-                    <select id="companyState" name="companyState" required class="w-full p-2 border border-gray-300 rounded-md">
-                        </select>
-                </div>
-            </div>
-            <div class="mt-4 text-right">
-                <button id="saveCompanyDetailsBtn" class="py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                    Save Company Details
-                </button>
-            </div>
-        </div>
-
-
-        <div class="mb-10 no-print">
-            <div class="border-b border-gray-200 mb-[-1px]">
-                <nav class="-mb-px flex" aria-label="Tabs">
-                    <button class="tab-button active" data-tab="logDocument">Log Existing Document</button>
-                    <button class="tab-button" data-tab="createDocument">Create New Document</button>
-                </nav>
+            <div class="mb-10 p-6 border border-gray-200 rounded-lg bg-white shadow-sm no-print">
+                 <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Dashboard</h2>
+                 <div id="dashboardStats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                     <div class="dashboard-card"> <div class="dashboard-label">Loading...</div> <div class="dashboard-value">-</div> </div>
+                 </div>
             </div>
 
-            <div id="logDocumentContent" class="tab-content active">
-                <h3 class="text-xl font-semibold text-gray-700 mb-4">Log Existing Bill / Challan / Note</h3>
-                 <form id="logDocumentForm">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div> <label for="logDocType" class="block text-sm font-medium text-gray-700 mb-1 required">Document Type</label> <select id="logDocType" name="logDocType" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> <option value="">-- Select Type --</option> <option value="Purchase Bill">Purchase Bill/Invoice</option> <option value="Credit Note Received">Credit Note (Received)</option> <option value="Debit Note Received">Debit Note (Received)</option> <option value="Delivery Challan Received">Delivery Challan (Received)</option> <option value="Other Logged">Other</option> </select> </div>
-                        <div> <label for="logDocDate" class="block text-sm font-medium text-gray-700 mb-1 required">Document Date</label> <input type="date" id="logDocDate" name="logDocDate" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logDocNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Document Number</label> <input type="text" id="logDocNumber" name="logDocNumber" required placeholder="e.g., INV-123, CN-001" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Party Name</label> <input type="text" id="logPartyName" name="logPartyName" required placeholder="Supplier/Vendor Name" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logPartyGstin" class="block text-sm font-medium text-gray-700 mb-1">Party GSTIN</label> <input type="text" id="logPartyGstin" name="logPartyGstin" placeholder="Optional" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logRefDocNumber" class="block text-sm font-medium text-gray-700 mb-1">Reference Doc No.</label> <input type="text" id="logRefDocNumber" name="logRefDocNumber" placeholder="Optional (e.g., Original Invoice No.)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div class="md:col-span-2 lg:col-span-3"> <label for="logDescription" class="block text-sm font-medium text-gray-700 mb-1">Description / Particulars</label> <textarea id="logDescription" name="logDescription" rows="2" placeholder="Brief description of goods/services or reason for note" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea> </div>
-                        <div> <label for="logTaxableAmount" class="block text-sm font-medium text-gray-700 mb-1">Taxable Amount (INR)</label> <input type="number" id="logTaxableAmount" name="logTaxableAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logCgstAmount" class="block text-sm font-medium text-gray-700 mb-1">CGST (INR)</label> <input type="number" id="logCgstAmount" name="logCgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logSgstAmount" class="block text-sm font-medium text-gray-700 mb-1">SGST/UTGST (INR)</label> <input type="number" id="logSgstAmount" name="logSgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logIgstAmount" class="block text-sm font-medium text-gray-700 mb-1">IGST (INR)</label> <input type="number" id="logIgstAmount" name="logIgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logTotalAmount" class="block text-sm font-medium text-gray-700 mb-1 required">Total Amount (INR)</label> <input type="number" id="logTotalAmount" name="logTotalAmount" step="0.01" required placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
-                        <div> <label for="logDocImage" class="block text-sm font-medium text-gray-700 mb-1">Upload Document Image</label> <input type="file" id="logDocImage" name="logDocImage" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition cursor-pointer"> <img id="logImagePreview" src="#" alt="Image Preview" class="mt-2 preview-img hidden"/> <p class="text-xs text-gray-500 mt-1">Optional. Max size ~1-2MB recommended.</p> </div>
-                        <div class="md:col-span-2 lg:col-span-3"> <label for="logRemarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks / Notes</label> <textarea id="logRemarks" name="logRemarks" rows="2" placeholder="Internal notes or additional info" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea> </div>
+            <div id="companyDetailsSection" class="mb-10 p-6 rounded-lg shadow-sm no-print">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">My Company Details (for Printing)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1 required">Company Name</label>
+                        <input type="text" id="companyName" name="companyName" required class="w-full p-2 border border-gray-300 rounded-md">
                     </div>
-                    <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"> Log Document </button> </div>
-                 </form>
+                     <div>
+                        <label for="companyGstin" class="block text-sm font-medium text-gray-700 mb-1 required">Company GSTIN</label>
+                        <input type="text" id="companyGstin" name="companyGstin" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="companyAddress" class="block text-sm font-medium text-gray-700 mb-1 required">Company Address</label>
+                        <textarea id="companyAddress" name="companyAddress" rows="3" required class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter full address, one part per line"></textarea>
+                    </div>
+                    <div>
+                        <label for="companyState" class="block text-sm font-medium text-gray-700 mb-1 required">Company State</label>
+                        <select id="companyState" name="companyState" required class="w-full p-2 border border-gray-300 rounded-md">
+                            </select>
+                    </div>
+                </div>
+                <div class="mt-4 text-right">
+                    <button id="saveCompanyDetailsBtn" class="py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                        Save Company Details
+                    </button>
+                </div>
             </div>
 
-            <div id="createDocumentContent" class="tab-content">
-                 <h3 class="text-xl font-semibold text-gray-700 mb-4">Create New Invoice / Challan / Note</h3>
-                 <div class="border-b border-gray-200 mb-4">
-                     <nav class="-mb-px flex space-x-4 overflow-x-auto" aria-label="Create Document Types">
-                         <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600" data-create-type="invoice">Invoice</button>
-                         <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="challan">Challan</button>
-                         <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="creditNote">Credit Note</button>
-                         <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="debitNote">Debit Note</button>
-                     </nav>
-                 </div>
+            <div class="mb-10 no-print">
+                <div class="border-b border-gray-200 mb-[-1px]">
+                    <nav class="-mb-px flex" aria-label="Tabs">
+                        <button class="tab-button active" data-tab="logDocument">Log Existing Document</button>
+                        <button class="tab-button" data-tab="createDocument">Create New Document</button>
+                    </nav>
+                </div>
 
-                 <form id="createInvoiceForm" class="create-form active">
-                     <h4 class="text-lg font-medium text-gray-600 mb-4">Create Sales Invoice</h4>
-                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                         <div><label for="createInvDate" class="block text-sm font-medium text-gray-700 mb-1 required">Invoice Date</label><input type="date" id="createInvDate" name="createInvDate" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div><label for="createInvNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Invoice Number</label><input type="text" id="createInvNumber" name="createInvNumber" required placeholder="Auto/Manual INV No." class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div><label for="createInvPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Customer Name</label><input type="text" id="createInvPartyName" name="createInvPartyName" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div class="md:col-span-2">
-                            <label for="createInvCustomerAddress" class="block text-sm font-medium text-gray-700 mb-1">Customer Address</label>
-                            <textarea id="createInvCustomerAddress" name="createInvCustomerAddress" rows="2" class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter customer address, one part per line"></textarea>
-                         </div>
-                         <div>
-                            <label for="createInvCustomerState" class="block text-sm font-medium text-gray-700 mb-1 required">Customer State</label>
-                            <select id="createInvCustomerState" name="createInvCustomerState" required class="w-full p-2 border border-gray-300 rounded-md inv-item-calc">
-                                </select>
+                <div id="logDocumentContent" class="tab-content active">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Log Existing Bill / Challan / Note</h3>
+                     <form id="logDocumentForm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div> <label for="logDocType" class="block text-sm font-medium text-gray-700 mb-1 required">Document Type</label> <select id="logDocType" name="logDocType" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> <option value="">-- Select Type --</option> <option value="Purchase Bill">Purchase Bill/Invoice</option> <option value="Credit Note Received">Credit Note (Received)</option> <option value="Debit Note Received">Debit Note (Received)</option> <option value="Delivery Challan Received">Delivery Challan (Received)</option> <option value="Other Logged">Other</option> </select> </div>
+                            <div> <label for="logDocDate" class="block text-sm font-medium text-gray-700 mb-1 required">Document Date</label> <input type="date" id="logDocDate" name="logDocDate" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logDocNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Document Number</label> <input type="text" id="logDocNumber" name="logDocNumber" required placeholder="e.g., INV-123, CN-001" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Party Name</label> <input type="text" id="logPartyName" name="logPartyName" required placeholder="Supplier/Vendor Name" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logPartyGstin" class="block text-sm font-medium text-gray-700 mb-1">Party GSTIN</label> <input type="text" id="logPartyGstin" name="logPartyGstin" placeholder="Optional" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logRefDocNumber" class="block text-sm font-medium text-gray-700 mb-1">Reference Doc No.</label> <input type="text" id="logRefDocNumber" name="logRefDocNumber" placeholder="Optional (e.g., Original Invoice No.)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div class="md:col-span-2 lg:col-span-3"> <label for="logDescription" class="block text-sm font-medium text-gray-700 mb-1">Description / Particulars</label> <textarea id="logDescription" name="logDescription" rows="2" placeholder="Brief description of goods/services or reason for note" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea> </div>
+                            <div> <label for="logTaxableAmount" class="block text-sm font-medium text-gray-700 mb-1">Taxable Amount (INR)</label> <input type="number" id="logTaxableAmount" name="logTaxableAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logCgstAmount" class="block text-sm font-medium text-gray-700 mb-1">CGST (INR)</label> <input type="number" id="logCgstAmount" name="logCgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logSgstAmount" class="block text-sm font-medium text-gray-700 mb-1">SGST/UTGST (INR)</label> <input type="number" id="logSgstAmount" name="logSgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logIgstAmount" class="block text-sm font-medium text-gray-700 mb-1">IGST (INR)</label> <input type="number" id="logIgstAmount" name="logIgstAmount" step="0.01" placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div> <label for="logTotalAmount" class="block text-sm font-medium text-gray-700 mb-1 required">Total Amount (INR)</label> <input type="number" id="logTotalAmount" name="logTotalAmount" step="0.01" required placeholder="0.00" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"> </div>
+                            <div class="md:col-span-2 lg:col-span-3"> <label for="logRemarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks / Notes</label> <textarea id="logRemarks" name="logRemarks" rows="2" placeholder="Internal notes or additional info" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea> </div>
                         </div>
-                         <div><label for="createInvPartyGstin" class="block text-sm font-medium text-gray-700 mb-1">Customer GSTIN</label><input type="text" id="createInvPartyGstin" name="createInvPartyGstin" placeholder="Optional" class="w-full p-2 border border-gray-300 rounded-md"></div>
-                     </div>
-                     <hr class="my-6">
-                     <h5 class="text-md font-medium text-gray-600 mb-2">Items</h5>
-                     <div class="item-row text-xs font-medium text-gray-500 mb-1 hidden md:flex">
-                         <div class="w-desc pl-1">Description</div>
-                         <div class="w-qty text-center">Qty</div>
-                         <div class="w-rate text-center">Rate</div>
-                         <div class="w-gst text-center">GST%</div>
-                         <div class="w-amt text-right pr-2">Amount</div>
-                         <div class="w-btn"></div>
-                     </div>
-                     <div id="createInvItemsContainer" class="space-y-2 mb-4"></div>
-                     <button type="button" id="addInvItemBtn" class="text-sm text-indigo-600 hover:text-indigo-800 mb-4">+ Add Item</button>
-                     <hr class="my-6">
-                     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 text-sm">
-                         <div><label class="font-medium text-gray-600">Taxable:</label> <span id="invTaxableTotal">0.00</span></div>
-                         <div><label class="font-medium text-gray-600">CGST:</label> <span id="invCgstTotal">0.00</span></div>
-                         <div><label class="font-medium text-gray-600">SGST:</label> <span id="invSgstTotal">0.00</span></div>
-                         <div><label class="font-medium text-gray-600">IGST:</label> <span id="invIgstTotal">0.00</span></div>
-                         <div class="md:col-start-5"><label class="font-bold text-gray-700">Total:</label> <span id="invGrandTotal" class="font-bold">0.00</span></div>
-                     </div>
-                     <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Invoice</button> </div>
-                 </form>
+                        <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"> Log Document </button> </div>
+                     </form>
+                </div>
 
-                 <form id="createChallanForm" class="create-form hidden">
-                     <h4 class="text-lg font-medium text-gray-600 mb-4">Create Delivery Challan</h4>
-                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                         <div><label for="createChallanDate" class="block text-sm font-medium text-gray-700 mb-1 required">Challan Date</label><input type="date" id="createChallanDate" name="createChallanDate" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div><label for="createChallanNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Challan Number</label><input type="text" id="createChallanNumber" name="createChallanNumber" required placeholder="Auto/Manual CH No." class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div><label for="createChallanPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Receiver Name</label><input type="text" id="createChallanPartyName" name="createChallanPartyName" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-                         <div class="md:col-span-3">
-                            <label for="createChallanReceiverAddress" class="block text-sm font-medium text-gray-700 mb-1">Receiver Address</label>
-                            <textarea id="createChallanReceiverAddress" name="createChallanReceiverAddress" rows="2" class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter receiver address, one part per line"></textarea>
+                <div id="createDocumentContent" class="tab-content">
+                     <h3 class="text-xl font-semibold text-gray-700 mb-4">Create New Invoice / Challan / Note</h3>
+                     <div class="border-b border-gray-200 mb-4">
+                         <nav class="-mb-px flex space-x-4 overflow-x-auto" aria-label="Create Document Types">
+                             <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600" data-create-type="invoice">Invoice</button>
+                             <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="challan">Challan</button>
+                             <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="creditNote">Credit Note</button>
+                             <button class="create-type-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-create-type="debitNote">Debit Note</button>
+                         </nav>
+                     </div>
+
+                     <form id="createInvoiceForm" class="create-form active">
+                         <h4 class="text-lg font-medium text-gray-600 mb-4">Create Sales Invoice</h4>
+                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             <div><label for="createInvDate" class="block text-sm font-medium text-gray-700 mb-1 required">Invoice Date</label><input type="date" id="createInvDate" name="createInvDate" required class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div><label for="createInvNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Invoice Number</label><input type="text" id="createInvNumber" name="createInvNumber" required placeholder="Auto/Manual INV No." class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div><label for="createInvPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Customer Name</label><input type="text" id="createInvPartyName" name="createInvPartyName" required class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div class="md:col-span-2">
+                                <label for="createInvCustomerAddress" class="block text-sm font-medium text-gray-700 mb-1">Customer Address</label>
+                                <textarea id="createInvCustomerAddress" name="createInvCustomerAddress" rows="2" class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter customer address, one part per line"></textarea>
+                             </div>
+                             <div>
+                                <label for="createInvCustomerState" class="block text-sm font-medium text-gray-700 mb-1 required">Customer State</label>
+                                <select id="createInvCustomerState" name="createInvCustomerState" required class="w-full p-2 border border-gray-300 rounded-md inv-item-calc">
+                                    </select>
+                            </div>
+                             <div><label for="createInvPartyGstin" class="block text-sm font-medium text-gray-700 mb-1">Customer GSTIN</label><input type="text" id="createInvPartyGstin" name="createInvPartyGstin" placeholder="Optional" class="w-full p-2 border border-gray-300 rounded-md"></div>
                          </div>
+                         <hr class="my-6">
+                         <h5 class="text-md font-medium text-gray-600 mb-2">Items</h5>
+                         <div class="item-row text-xs font-medium text-gray-500 mb-1 hidden md:flex">
+                             <div class="w-desc pl-1">Description</div>
+                             <div class="w-qty text-center">Qty</div>
+                             <div class="w-rate text-center">Rate</div>
+                             <div class="w-gst text-center">GST%</div>
+                             <div class="w-amt text-right pr-2">Amount</div>
+                             <div class="w-btn"></div>
+                         </div>
+                         <div id="createInvItemsContainer" class="space-y-2 mb-4"></div>
+                         <button type="button" id="addInvItemBtn" class="text-sm text-indigo-600 hover:text-indigo-800 mb-4">+ Add Item</button>
+                         <hr class="my-6">
+                         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 text-sm">
+                             <div><label class="font-medium text-gray-600">Taxable:</label> <span id="invTaxableTotal">0.00</span></div>
+                             <div><label class="font-medium text-gray-600">CGST:</label> <span id="invCgstTotal">0.00</span></div>
+                             <div><label class="font-medium text-gray-600">SGST:</label> <span id="invSgstTotal">0.00</span></div>
+                             <div><label class="font-medium text-gray-600">IGST:</label> <span id="invIgstTotal">0.00</span></div>
+                             <div class="md:col-start-5"><label class="font-bold text-gray-700">Total:</label> <span id="invGrandTotal" class="font-bold">0.00</span></div>
+                         </div>
+                         <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Invoice</button> </div>
+                     </form>
+
+                     <form id="createChallanForm" class="create-form hidden">
+                         <h4 class="text-lg font-medium text-gray-600 mb-4">Create Delivery Challan</h4>
+                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             <div><label for="createChallanDate" class="block text-sm font-medium text-gray-700 mb-1 required">Challan Date</label><input type="date" id="createChallanDate" name="createChallanDate" required class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div><label for="createChallanNumber" class="block text-sm font-medium text-gray-700 mb-1 required">Challan Number</label><input type="text" id="createChallanNumber" name="createChallanNumber" required placeholder="Auto/Manual CH No." class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div><label for="createChallanPartyName" class="block text-sm font-medium text-gray-700 mb-1 required">Receiver Name</label><input type="text" id="createChallanPartyName" name="createChallanPartyName" required class="w-full p-2 border border-gray-300 rounded-md"></div>
+                             <div class="md:col-span-3">
+                                <label for="createChallanReceiverAddress" class="block text-sm font-medium text-gray-700 mb-1">Receiver Address</label>
+                                <textarea id="createChallanReceiverAddress" name="createChallanReceiverAddress" rows="2" class="w-full p-2 border border-gray-300 rounded-md" placeholder="Enter receiver address, one part per line"></textarea>
+                             </div>
+                         </div>
+                          <hr class="my-6">
+                         <h5 class="text-md font-medium text-gray-600 mb-2">Items Delivered</h5>
+                         <div id="createChallanItemsContainer" class="space-y-2 mb-4"></div>
+                         <button type="button" id="addChallanItemBtn" class="text-sm text-indigo-600 hover:text-indigo-800 mb-4">+ Add Item</button>
+                         <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Challan</button> </div>
+                     </form>
+
+                     <form id="createCreditNoteForm" class="create-form hidden">
+                         <h4 class="text-lg font-medium text-gray-600 mb-4">Create Credit Note</h4>
+                         <p class="text-gray-500">Credit Note creation form placeholder.</p>
+                         <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Credit Note</button> </div>
+                     </form>
+
+                     <form id="createDebitNoteForm" class="create-form hidden">
+                         <h4 class="text-lg font-medium text-gray-600 mb-4">Create Debit Note</h4>
+                         <p class="text-gray-500">Debit Note creation form placeholder.</p>
+                         <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Debit Note</button> </div>
+                     </form>
+                </div>
+            </div>
+
+            <div class="no-print">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                     <h2 class="text-2xl font-semibold text-gray-700">Logged & Created Documents</h2>
+                     <div class="flex gap-4 w-full md:w-auto">
+                        <input type="text" id="searchInput" placeholder="Search by Doc No, Party or ID..." class="flex-grow md:flex-grow-0 w-full md:w-64 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <button id="exportCsvBtn" title="Export all documents to CSV" class="flex-shrink-0 py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"> Export CSV </button>
                      </div>
-                      <hr class="my-6">
-                     <h5 class="text-md font-medium text-gray-600 mb-2">Items Delivered</h5>
-                     <div id="createChallanItemsContainer" class="space-y-2 mb-4"></div>
-                     <button type="button" id="addChallanItemBtn" class="text-sm text-indigo-600 hover:text-indigo-800 mb-4">+ Add Item</button>
-                     <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Challan</button> </div>
-                 </form>
-
-                 <form id="createCreditNoteForm" class="create-form hidden">
-                     <h4 class="text-lg font-medium text-gray-600 mb-4">Create Credit Note</h4>
-                     <p class="text-gray-500">Credit Note creation form placeholder.</p>
-                     <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Credit Note</button> </div>
-                 </form>
-
-                 <form id="createDebitNoteForm" class="create-form hidden">
-                     <h4 class="text-lg font-medium text-gray-600 mb-4">Create Debit Note</h4>
-                     <p class="text-gray-500">Debit Note creation form placeholder.</p>
-                     <div class="mt-6 text-right"> <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Create Debit Note</button> </div>
-                 </form>
+                </div>
+                <div id="transactionList" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 border-t pt-4">
+                    <p id="noTransactions" class="text-gray-500">No documents loaded yet. Sign in and data will load from Google Drive.</p>
+                    <p id="noSearchResults" class="text-gray-500 hidden">No documents match your search.</p>
+                </div>
             </div>
-        </div>
 
-
-        <div class="no-print">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                 <h2 class="text-2xl font-semibold text-gray-700">Logged & Created Documents</h2>
-                 <div class="flex gap-4 w-full md:w-auto">
-                    <input type="text" id="searchInput" placeholder="Search by Doc No or Tracking ID..." class="flex-grow md:flex-grow-0 w-full md:w-64 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition">
-                    <button id="exportCsvBtn" title="Export all documents to CSV" class="flex-shrink-0 py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"> Export CSV </button>
-                 </div>
+        </div> <div id="unauthorizedContent" class="text-center p-10 border rounded-lg bg-gray-50" style="display: block;"> <p class="text-lg text-gray-700 mb-4">Please sign in with Google to access the Document Tracker.</p>
             </div>
-            <div id="transactionList" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 border-t pt-4">
-                <p id="noTransactions" class="text-gray-500">No documents logged or created yet.</p>
-                <p id="noSearchResults" class="text-gray-500 hidden">No documents match your search.</p>
-            </div>
-        </div>
-    </div>
 
-    <div id="imageModal" class="modal" onclick="closeModalOnClickOutside(event)"> <span class="modal-close" onclick="closeModal()">&times;</span> <img class="modal-content" id="modalImage"> </div>
+    </div> <div id="imageModal" class="modal" onclick="closeModalOnClickOutside(event)"> <span class="modal-close" onclick="closeModal()">&times;</span> <img class="modal-content" id="modalImage"> </div>
 
     <div id="printArea" class="hidden"></div>
 
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script> <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+
     <script>
-        // --- Constants ---
-        const USERS_STORAGE_KEY = 'appUsers_v2';
-        const TRANSACTIONS_STORAGE_KEY = 'transactions_v2';
-        const COMPANY_DETAILS_STORAGE_KEY = 'myCompanyDetails_v2'; // Key for company details
+        // --- Configuration ---
+        // Client ID obtained from Google Cloud Console
+        const CLIENT_ID = '908628126955-3fovl5fh2c3gu8puvdmke0id1a6s0qkm.apps.googleusercontent.com';
+        // API Key obtained from Google Cloud Console (MUST BE RESTRICTED)
+        const API_KEY = 'AIzaSyBzPLM7rLE250ARAUDBF8Zm66M7IupKtCE'; // API Key added
+        // Discovery document for Google Drive API v3
+        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+        // Scopes define the level of access requested. drive.file is recommended for security.
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-        // Default Company Details (if nothing in storage)
-        const DEFAULT_COMPANY_DETAILS = {
-            name: "Your Company Name",
-            address: "123 Your Street\nYour City, Your Pin", // Use \n for line breaks
-            gstin: "YOUR_GSTIN_HERE",
-            state: "Haryana"
-        };
+        // Filenames for storing data in Google Drive
+        const TRANSACTIONS_FILENAME = 'document_tracker_data.json';
+        const COMPANY_DETAILS_FILENAME = 'document_tracker_company.json';
 
-        // Indian States List
-        const INDIAN_STATES = [ "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir" ];
-
+        // --- Global State Variables ---
+        let tokenClient; // Google Identity Services token client
+        let gapiInited = false; // Flag for GAPI client library initialization
+        let gisInited = false; // Flag for GIS library initialization
+        let transactionsData = []; // In-memory cache of transactions
+        let companyDetailsData = null; // In-memory cache of company details
+        let transactionsFileId = null; // Google Drive File ID for transactions data
+        let companyDetailsFileId = null; // Google Drive File ID for company details data
 
         // --- Utility Functions ---
-        const $ = (selector) => document.getElementById(selector);
-        const $$ = (selector) => document.querySelectorAll(selector);
+        const $ = (selector) => document.getElementById(selector); // Shorthand for getElementById
+        const $$ = (selector) => document.querySelectorAll(selector); // Shorthand for querySelectorAll
+        // Formats a number as Indian Rupees (INR)
         const formatCurrency = (num) => { const v = parseFloat(num); return !isNaN(v) ? v.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'; };
+        // Shows the loading indicator overlay
+        const showLoading = (message = 'Loading...') => { $('loadingIndicator').textContent = message; $('loadingIndicator').style.display = 'block'; };
+        // Hides the loading indicator overlay
+        const hideLoading = () => { $('loadingIndicator').style.display = 'none'; };
 
-        // --- User Management (INSECURE - LocalStorage) ---
-        function initializeUsers() { /* ... (no changes needed) ... */
-            try { let users = getUsersFromStorage(); let needsSave = false; if (!users.find(u => u.username === 'admin')) { users.push({ username: 'admin', password: 'baba291814', role: 'admin' }); needsSave = true; console.log('Initialized admin.'); } if (!users.find(u => u.username === 'user1')) { users.push({ username: 'user1', password: '123456', role: 'user' }); needsSave = true; console.log('Initialized user1.'); } if (needsSave) saveUsersToStorage(users); } catch (e) { console.error("User init error:", e); }
-        }
-        function getUsersFromStorage() { try { const d = localStorage.getItem(USERS_STORAGE_KEY); return d ? JSON.parse(d) : []; } catch (e) { console.error("Get users error:", e); return []; } }
-        function saveUsersToStorage(users) { try { localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users)); } catch (e) { console.error("Save users error:", e); alert("Could not save user data."); } }
+        // --- Google API & Auth Initialization ---
 
-        // --- Company Details Management ---
-        function getCompanyDetails() {
+        // Called after Google API client library (gapi.js) loads.
+        // function gapiLoaded() { // Defined by script tag onload
+        //     gapi.load('client', initializeGapiClient); // Load the 'client' module
+        // }
+
+        // Initializes the Google API client library (gapi.client).
+        async function initializeGapiClient() {
             try {
-                const details = localStorage.getItem(COMPANY_DETAILS_STORAGE_KEY);
-                return details ? JSON.parse(details) : DEFAULT_COMPANY_DETAILS;
-            } catch (e) {
-                console.error("Error getting company details:", e);
-                return DEFAULT_COMPANY_DETAILS; // Return default on error
+                // Initialize the client with API key and discovery docs
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: DISCOVERY_DOCS,
+                });
+                gapiInited = true; // Set flag
+                console.log("GAPI client initialized.");
+                maybeEnableButtons(); // Check if both libraries are ready
+            } catch (error) {
+                console.error("Error initializing GAPI client:", error);
+                $('authStatus').textContent = 'Error initializing Google API.';
+                // Provide more user-friendly error feedback if possible
             }
         }
-        function saveCompanyDetails() {
-            const details = {
-                name: $('companyName')?.value || '',
-                address: $('companyAddress')?.value || '',
-                gstin: $('companyGstin')?.value || '',
-                state: $('companyState')?.value || ''
-            };
-            // Basic validation
-            if (!details.name || !details.address || !details.gstin || !details.state) {
-                alert("Please fill in all required Company Details fields.");
+
+        // Called after Google Identity Services library (accounts.google.com/gsi/client) loads.
+        // function gisLoaded() { // Defined by script tag onload
+        //     try {
+        //         // Initialize the token client for handling OAuth 2.0 flow
+        //         tokenClient = google.accounts.oauth2.initTokenClient({
+        //             client_id: CLIENT_ID,
+        //             scope: SCOPES,
+        //             callback: tokenResponseCallback, // Function called after token response
+        //             error_callback: (error) => { // Function called on GIS error
+        //                 console.error('GIS Error:', error);
+        //                 $('authStatus').textContent = 'Authentication error.';
+        //                 hideLoading();
+        //                 updateAuthUI(false); // Ensure UI reflects failed auth
+        //             }
+        //         });
+        //         gisInited = true; // Set flag
+        //         console.log("GIS client initialized.");
+        //         maybeEnableButtons(); // Check if both libraries are ready
+        //     } catch (error) {
+        //         console.error("Error initializing GIS client:", error);
+        //         $('authStatus').textContent = 'Error initializing Google Sign-In.';
+        //     }
+        // }
+
+        // Checks if both GAPI and GIS libraries are loaded and updates the UI.
+        function maybeEnableButtons() {
+            // Only proceed if both libraries are initialized
+            if (gapiInited && gisInited) {
+                 console.log("Both GAPI and GIS initialized. Updating UI.");
+                 // Display initial UI (buttons will be added in updateAuthUI)
+                 updateAuthUI(false); // Assume not signed in initially
+                 $('mainAppContent').style.display = 'block'; // Show the main container now
+            }
+        }
+
+        // Callback function executed after the user grants/denies permission or token is refreshed.
+        async function tokenResponseCallback(tokenResponse) {
+            hideLoading(); // Hide loading indicator once response is received
+            if (tokenResponse && tokenResponse.access_token) {
+                console.log("Access token received.");
+                // Store the token with gapi.client for subsequent API calls
+                gapi.client.setToken(tokenResponse);
+                $('authStatus').textContent = 'Authorized.';
+                showLoading('Loading data from Google Drive...');
+                updateAuthUI(true); // Update UI to show signed-in state
+                await loadInitialDataFromDrive(); // Load data from Drive after successful auth
+                hideLoading();
+            } else {
+                // Handle errors or denial of consent
+                console.error('Error in token response or consent denied:', tokenResponse);
+                $('authStatus').textContent = 'Authorization failed or denied.';
+                 updateAuthUI(false); // Ensure UI reflects signed-out state
+            }
+        }
+
+        // --- Authentication UI and Actions ---
+
+        // Handles the sign-in button click. Initiates the OAuth flow.
+        function handleAuthClick() {
+            showLoading('Signing in...');
+            if (tokenClient) {
+                 // Check if a token is already available (might be expired)
+                if (gapi.client.getToken() === null) {
+                    // No token, prompt the user to select an account and grant access.
+                    console.log("Requesting access token with consent prompt.");
+                    tokenClient.requestAccessToken({prompt: 'consent'});
+                } else {
+                    // Token exists, try a silent request first (might refresh if needed)
+                    console.log("Requesting access token silently.");
+                    tokenClient.requestAccessToken({prompt: ''});
+                }
+            } else {
+                 console.error("Token client not initialized.");
+                 hideLoading();
+                 $('authStatus').textContent = 'Sign-in service not ready.';
+            }
+        }
+
+        // Handles the sign-out button click. Revokes the token.
+        function handleSignOutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                showLoading('Signing out...');
+                // Revoke the token to sign the user out
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    gapi.client.setToken(null); // Clear the token from gapi client
+                    // Clear in-memory data and state
+                    transactionsData = [];
+                    companyDetailsData = null;
+                    transactionsFileId = null;
+                    companyDetailsFileId = null;
+                    updateAuthUI(false); // Update UI to signed-out state
+                    console.log('User signed out and token revoked.');
+                    hideLoading();
+                    // Clear the displayed list and dashboard
+                    displayTransactions();
+                    updateDashboard();
+                });
+            }
+        }
+
+        // Updates the UI (buttons, content visibility) based on authentication status.
+        function updateAuthUI(isSignedIn) {
+            const authContainer = $('authContainer');
+            const authorizedContent = $('authorizedContent');
+            const unauthorizedContent = $('unauthorizedContent');
+
+            authContainer.innerHTML = ''; // Clear previous buttons/status
+
+            if (isSignedIn) {
+                // User is signed in: Show Sign Out button, hide unauthorized message, show main content
+                const signOutButton = document.createElement('button');
+                signOutButton.id = 'signout_button';
+                signOutButton.textContent = 'Sign Out';
+                signOutButton.className = 'auth-button auth-button-signout';
+                signOutButton.onclick = handleSignOutClick;
+                authContainer.appendChild(signOutButton);
+                $('authStatus').textContent = 'Signed in.';
+                authorizedContent.style.display = 'block';
+                unauthorizedContent.style.display = 'none';
+
+                // Perform actions needed after sign-in (data loading happens in token callback)
+                loadCompanyDetailsIntoForm(); // Ensure form reflects loaded/default details
+                populateStateDropdowns($('createInvCustomerState')); // Populate dropdowns
+
+                // Add initial item rows if the forms are visible and empty
+                if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) {
+                    addInvoiceItemRow();
+                }
+                if ($('createChallanItemsContainer') && $('createChallanItemsContainer').offsetParent !== null && $('createChallanItemsContainer').children.length === 0) {
+                    addChallanItemRow();
+                }
+
+            } else {
+                // User is signed out: Show Sign In button, show unauthorized message, hide main content
+                const signInButton = document.createElement('button');
+                signInButton.id = 'authorize_button';
+                signInButton.textContent = 'Sign in with Google';
+                signInButton.className = 'auth-button auth-button-signin';
+                signInButton.onclick = handleAuthClick;
+                authContainer.appendChild(signInButton);
+                $('authStatus').textContent = 'Not signed in.';
+                authorizedContent.style.display = 'none';
+                unauthorizedContent.style.display = 'block';
+
+                // Add a sign-in button also within the unauthorized content area for clarity
+                const signInButton2 = signInButton.cloneNode(true);
+                signInButton2.onclick = handleAuthClick;
+                 $('unauthorizedContent').innerHTML = '<p class="text-lg text-gray-700 mb-4">Please sign in with Google to access the Document Tracker.</p>';
+                 $('unauthorizedContent').appendChild(signInButton2);
+            }
+        }
+
+
+        // --- Google Drive Data Handling ---
+
+        /**
+         * Finds a file by its exact name within the scope accessible by the app (drive.file).
+         * @param {string} filename The name of the file to find.
+         * @returns {Promise<string|null>} The file ID if found, otherwise null.
+         */
+        async function findFileByName(filename) {
+            console.log(`Searching for file: ${filename}`);
+            if (!gapi.client.getToken()) {
+                 console.warn("Cannot search file: User not authenticated.");
+                 return null;
+            }
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${filename}' and trashed=false`, // Search in files created/opened by the app
+                    fields: 'files(id, name)',
+                    spaces: 'drive', // Search within the 'drive' space (visible files)
+                    pageSize: 1 // We only need the first match
+                });
+                if (response.result.files && response.result.files.length > 0) {
+                    console.log(`File '${filename}' found with ID: ${response.result.files[0].id}`);
+                    return response.result.files[0].id; // Return the ID
+                }
+                console.log(`File '${filename}' not found.`);
+                return null; // File not found
+            } catch (error) {
+                console.error(`Error finding file '${filename}':`, error);
+                if (error.status !== 404) {
+                     alert(`Error searching for file '${filename}' in Google Drive. Check console.`);
+                }
+                return null;
+            }
+        }
+
+        /**
+         * Reads the content of a file from Google Drive using its ID.
+         * @param {string} fileId The ID of the file to read.
+         * @returns {Promise<string|null>} The file content as a string, or null on error/not found.
+         */
+        async function readFileContent(fileId) {
+            console.log(`Reading content for file ID: ${fileId}`);
+            if (!fileId || !gapi.client.getToken()) {
+                console.warn("Cannot read file: File ID missing or user not authenticated.");
+                return null;
+            }
+            try {
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media' // Crucial parameter to fetch file content
+                });
+                console.log(`Successfully read content for file ID: ${fileId}`);
+                return response.body; // Returns file content as a string
+            } catch (error) {
+                if (error.status === 404) {
+                    console.warn(`File ID ${fileId} not found. It might have been deleted or permissions changed.`);
+                    return null; // Treat as non-existent
+                }
+                console.error(`Error reading file ID ${fileId}:`, error);
+                alert(`Error reading file content from Google Drive (ID: ${fileId}). Check console.`);
+                return null;
+            }
+        }
+
+        /**
+         * Creates a new file in Google Drive with the specified content.
+         * @param {string} filename The desired name for the new file.
+         * @param {string} content The content to write to the file (JSON string).
+         * @returns {Promise<string|null>} The new file ID if successful, otherwise null.
+         */
+        async function createFile(filename, content) {
+             console.log(`Creating new file: ${filename}`);
+             if (!gapi.client.getToken()) {
+                 console.warn("Cannot create file: User not authenticated.");
+                 return null;
+             }
+            try {
+                const metadata = {
+                    name: filename,
+                    mimeType: 'application/json',
+                };
+                const boundary = '-------314159265358979323846';
+                const delimiter = `\r\n--${boundary}\r\n`;
+                const close_delim = `\r\n--${boundary}--`;
+
+                const multipartRequestBody =
+                    delimiter +
+                    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    content +
+                    close_delim;
+
+                const response = await gapi.client.request({
+                    path: '/upload/drive/v3/files',
+                    method: 'POST',
+                    params: { uploadType: 'multipart' },
+                    headers: {
+                        'Content-Type': `multipart/related; boundary=${boundary}`
+                    },
+                    body: multipartRequestBody
+                });
+                console.log(`File '${filename}' created successfully with ID: ${response.result.id}`);
+                return response.result.id;
+            } catch (error) {
+                console.error(`Error creating file '${filename}':`, error);
+                alert(`Error creating file '${filename}' in Google Drive. Check console.`);
+                return null;
+            }
+        }
+
+        /**
+         * Updates the content of an existing file in Google Drive.
+         * @param {string} fileId The ID of the file to update.
+         * @param {string} content The new content to write (JSON string).
+         * @returns {Promise<boolean>} True if successful, false otherwise.
+         */
+        async function updateFile(fileId, content) {
+            console.log(`Updating file ID: ${fileId}`);
+            if (!fileId || !gapi.client.getToken()) {
+                 console.warn("Cannot update file: File ID missing or user not authenticated.");
+                 return false;
+            }
+            try {
+                 const boundary = '-------314159265358979323846';
+                 const delimiter = `\r\n--${boundary}\r\n`;
+                 const close_delim = `\r\n--${boundary}--`;
+
+                 const multipartRequestBody =
+                     delimiter +
+                     'Content-Type: application/json\r\n\r\n' +
+                     content +
+                     close_delim;
+
+                 const response = await gapi.client.request({
+                    path: `/upload/drive/v3/files/${fileId}`,
+                    method: 'PATCH',
+                    params: { uploadType: 'multipart' },
+                    headers: {
+                        'Content-Type': `multipart/related; boundary=${boundary}`
+                    },
+                    body: multipartRequestBody
+                });
+                console.log(`File ID ${fileId} updated successfully.`);
+                return true;
+            } catch (error) {
+                console.error(`Error updating file ID ${fileId}:`, error);
+                alert(`Error updating file in Google Drive (ID: ${fileId}). Check console.`);
                 return false;
             }
-            try {
-                localStorage.setItem(COMPANY_DETAILS_STORAGE_KEY, JSON.stringify(details));
-                alert("Company details saved successfully!");
-                // Recalculate invoice totals if company state changed
-                if ($('createInvoiceForm').classList.contains('active')) {
+        }
+
+        // --- Data Loading and Saving Wrappers (using Drive functions) ---
+
+        /**
+         * Loads initial data (transactions and company details) from Google Drive files.
+         * Finds files, reads content, parses JSON, and updates in-memory caches.
+         */
+        async function loadInitialDataFromDrive() {
+            console.log("Loading initial data from Google Drive...");
+            showLoading('Finding data files...');
+            [transactionsFileId, companyDetailsFileId] = await Promise.all([
+                findFileByName(TRANSACTIONS_FILENAME),
+                findFileByName(COMPANY_DETAILS_FILENAME)
+            ]);
+
+            showLoading('Reading transaction data...');
+            if (transactionsFileId) {
+                const content = await readFileContent(transactionsFileId);
+                try {
+                    transactionsData = content ? JSON.parse(content) : [];
+                    console.log(`Loaded ${transactionsData.length} transactions.`);
+                } catch (e) {
+                    console.error("Error parsing transactions JSON from Drive:", e);
+                    alert("Could not parse transaction data from Google Drive. Data might be corrupt. Starting fresh.");
+                    transactionsData = [];
+                    transactionsFileId = null;
+                }
+            } else {
+                console.log("Transactions file not found in Drive. Initializing empty list.");
+                transactionsData = [];
+            }
+
+            showLoading('Reading company details...');
+            if (companyDetailsFileId) {
+                const content = await readFileContent(companyDetailsFileId);
+                 try {
+                    companyDetailsData = content ? JSON.parse(content) : null;
+                    console.log("Loaded company details:", companyDetailsData);
+                } catch (e) {
+                    console.error("Error parsing company details JSON from Drive:", e);
+                    alert("Could not parse company details from Google Drive. Data might be corrupt. Using defaults.");
+                    companyDetailsData = null;
+                    companyDetailsFileId = null;
+                }
+            } else {
+                 console.log("Company details file not found in Drive. Will use defaults.");
+                 companyDetailsData = null;
+            }
+
+            hideLoading();
+            loadCompanyDetailsIntoForm();
+            displayTransactions($('searchInput')?.value || '');
+            console.log("Initial data loading complete.");
+        }
+
+        /**
+         * Gets transactions from the in-memory cache.
+         * @returns {Array} The array of transaction objects.
+         */
+        function getTransactions() {
+            return transactionsData || [];
+        }
+
+        /**
+         * Saves the provided transactions array to the in-memory cache and persists it to Google Drive.
+         * Creates the file if it doesn't exist, updates it otherwise.
+         * @param {Array} updatedTransactions The complete array of transactions to save.
+         */
+        async function saveTransactions(updatedTransactions) {
+            transactionsData = updatedTransactions;
+            const content = JSON.stringify(transactionsData, null, 2);
+            console.log(`Attempting to save ${transactionsData.length} transactions.`);
+            showLoading('Saving transactions to Google Drive...');
+            let success = false;
+            if (transactionsFileId) {
+                success = await updateFile(transactionsFileId, content);
+            } else {
+                console.log(`Transactions file ID not found, attempting to create ${TRANSACTIONS_FILENAME}`);
+                const newFileId = await createFile(TRANSACTIONS_FILENAME, content);
+                if (newFileId) {
+                    transactionsFileId = newFileId;
+                    success = true;
+                }
+            }
+            hideLoading();
+            if (!success) {
+                 alert("Failed to save transaction data to Google Drive. Check console for errors.");
+                 console.error("Failed to save transactions to Drive.");
+            } else {
+                 console.log("Transactions saved successfully to Google Drive.");
+            }
+        }
+
+        /**
+         * Gets company details from the in-memory cache or returns defaults.
+         * @returns {object} The company details object.
+         */
+        function getCompanyDetails() {
+             const defaultDetails = {
+                name: "Your Company Name",
+                address: "123 Your Street\nYour City, Your Pin",
+                gstin: "YOUR_GSTIN_HERE",
+                state: "Haryana"
+            };
+             return companyDetailsData || defaultDetails;
+        }
+
+        /**
+         * Saves the current company details from the form to the in-memory cache and Google Drive.
+         * @returns {Promise<boolean>} True if save was successful, false otherwise.
+         */
+        async function saveCompanyDetails() {
+            const details = {
+                name: $('companyName')?.value.trim() || '',
+                address: $('companyAddress')?.value.trim() || '',
+                gstin: $('companyGstin')?.value.trim() || '',
+                state: $('companyState')?.value || ''
+            };
+            if (!details.name || !details.address || !details.gstin || !details.state) {
+                alert("Please fill in all required Company Details fields (*).");
+                return false;
+            }
+
+            companyDetailsData = details;
+            const content = JSON.stringify(companyDetailsData, null, 2);
+            console.log("Attempting to save company details.");
+            showLoading('Saving company details to Google Drive...');
+            let success = false;
+
+            if (companyDetailsFileId) {
+                success = await updateFile(companyDetailsFileId, content);
+            } else {
+                console.log(`Company details file ID not found, attempting to create ${COMPANY_DETAILS_FILENAME}`);
+                const newFileId = await createFile(COMPANY_DETAILS_FILENAME, content);
+                if (newFileId) {
+                    companyDetailsFileId = newFileId;
+                    success = true;
+                }
+            }
+            hideLoading();
+
+            if (success) {
+                alert("Company details saved successfully to Google Drive!");
+                console.log("Company details saved successfully.");
+                if ($('createInvoiceForm').offsetParent !== null) {
                     calculateInvoiceTotals();
                 }
                 return true;
-            } catch (e) {
-                console.error("Error saving company details:", e);
-                alert("Could not save company details.");
-                return false;
+            } else {
+                 alert("Failed to save company details to Google Drive. Check console.");
+                 console.error("Failed to save company details.");
+                 return false;
             }
         }
+
+        /** Loads company details from cache/defaults into the form fields. */
         function loadCompanyDetailsIntoForm() {
             const details = getCompanyDetails();
             $('companyName').value = details.name;
             $('companyAddress').value = details.address;
             $('companyGstin').value = details.gstin;
-            // Populate state dropdown first, then set value
-            populateStateDropdowns($('companyState')); // Populate company state dropdown
-            $('companyState').value = details.state;
+            populateStateDropdowns($('companyState'));
+            $('companyState').value = details.state || "Haryana";
+            console.log("Company details loaded into form.");
         }
 
-        // --- Login/Logout ---
-        function handleLogin(event) { /* ... (no changes needed) ... */
-            event.preventDefault(); const username = $('username').value.trim(); const password = $('password').value; const loginErrorEl = $('loginError'); loginErrorEl.classList.add('hidden'); if (!username || !password) { loginErrorEl.textContent = 'Enter username & password.'; loginErrorEl.classList.remove('hidden'); return; } const users = getUsersFromStorage(); const foundUser = users.find(u => u.username === username); if (foundUser && foundUser.password === password) { sessionStorage.setItem('isLoggedIn', 'true'); sessionStorage.setItem('loggedInUsername', foundUser.username); sessionStorage.setItem('userRole', foundUser.role || 'user'); showMainApp(); $('username').value = ''; $('password').value = ''; } else { loginErrorEl.textContent = 'Invalid credentials.'; loginErrorEl.classList.remove('hidden'); }
-        }
-        function handleLogout() { sessionStorage.clear(); showLoginScreenUI(); }
 
-        // --- UI Switching ---
-        function showLoginScreenUI() { $('loginScreen').style.display = 'flex'; $('mainAppContent').style.display = 'none'; }
-        function showMainApp() {
-            $('loginScreen').style.display = 'none'; $('mainAppContent').style.display = 'block';
-            const role = sessionStorage.getItem('userRole'); const username = sessionStorage.getItem('loggedInUsername');
-            $('loggedInUser').textContent = `User: ${username} (${role})`;
-            loadCompanyDetailsIntoForm(); // Load company details into form
-            populateStateDropdowns($('createInvCustomerState')); // Populate customer state dropdown
-            displayTransactions($('searchInput') ? $('searchInput').value : '');
-            if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) addInvoiceItemRow();
-            if ($('createChallanItemsContainer') && $('createChallanItemsContainer').offsetParent !== null && $('createChallanItemsContainer').children.length === 0) addChallanItemRow();
-        }
-        function checkInitialLoginState() { if (sessionStorage.getItem('isLoggedIn') === 'true') { showMainApp(); } else { showLoginScreenUI(); } }
-
-        // --- Tab Switching ---
-        function switchTab(event) { /* ... (no changes needed) ... */
-            const targetTab = event.target.dataset.tab; if (!targetTab) return; $$('.tab-button').forEach(b => b.classList.remove('active')); $$('.tab-content').forEach(c => c.classList.remove('active')); event.target.classList.add('active'); $(targetTab + 'Content').classList.add('active'); if (targetTab === 'createDocument') { if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) addInvoiceItemRow(); if ($('createChallanItemsContainer') && $('createChallanItemsContainer').offsetParent !== null && $('createChallanItemsContainer').children.length === 0) addChallanItemRow(); }
-        }
-
-        // --- Create Document Type Switching ---
-         function switchCreateType(event) { /* ... (no changes needed) ... */
-             const targetType = event.target.dataset.createType; if (!targetType) return; $$('.create-type-button').forEach(b => { b.classList.remove('border-indigo-500', 'text-indigo-600'); b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); }); $$('.create-form').forEach(f => f.classList.add('hidden')); event.target.classList.add('border-indigo-500', 'text-indigo-600'); event.target.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); const targetFormId = 'create' + targetType.charAt(0).toUpperCase() + targetType.slice(1) + 'Form'; $(targetFormId).classList.remove('hidden'); if (targetType === 'invoice' && $('createInvItemsContainer') && $('createInvItemsContainer').children.length === 0) addInvoiceItemRow(); if (targetType === 'challan' && $('createChallanItemsContainer') && $('createChallanItemsContainer').children.length === 0) addChallanItemRow();
-         }
-
-        // --- Populate State Dropdowns ---
+        // --- State Dropdown ---
+        const INDIAN_STATES = [ "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry", "Ladakh", "Jammu and Kashmir" ];
+        /**
+         * Populates a given select element with Indian states.
+         * @param {HTMLSelectElement} selectElement The dropdown element to populate.
+         */
         function populateStateDropdowns(selectElement) {
             if (!selectElement) return;
-            const currentValue = selectElement.value; // Preserve current value if exists
+            const currentValue = selectElement.value;
             selectElement.innerHTML = '<option value="">-- Select State --</option>';
             INDIAN_STATES.sort().forEach(state => {
                 const option = document.createElement('option');
@@ -410,56 +831,114 @@
                 option.textContent = state;
                 selectElement.appendChild(option);
             });
-            // Restore previous selection or default
-            if (INDIAN_STATES.includes(currentValue)) {
+             const currentCompanyState = getCompanyDetails().state;
+             if (INDIAN_STATES.includes(currentValue)) {
                 selectElement.value = currentValue;
-            } else if (selectElement.id === 'companyState' && INDIAN_STATES.includes(getCompanyDetails().state)) {
-                 selectElement.value = getCompanyDetails().state; // Default company state
-            } else if (selectElement.id === 'createInvCustomerState' && INDIAN_STATES.includes(getCompanyDetails().state)) {
-                 selectElement.value = getCompanyDetails().state; // Default customer state to company state
+            } else if (INDIAN_STATES.includes(currentCompanyState)) {
+                 selectElement.value = currentCompanyState;
             }
         }
 
-        // --- Image Preview ---
-        function handleImagePreview(event, previewElementId) { /* ... (no changes needed) ... */
-             const file = event.target.files[0]; const previewEl = $(previewElementId); if (!previewEl) return; if (file && file.type.startsWith('image/')) { const reader = new FileReader(); reader.onload = (e) => { previewEl.src = e.target.result; previewEl.classList.remove('hidden'); }; reader.readAsDataURL(file); } else { previewEl.src = '#'; previewEl.classList.add('hidden'); }
+        // --- Tab Switching ---
+        /** Handles switching between the 'Log Document' and 'Create Document' tabs. */
+        function switchTab(event) {
+            const targetTab = event.target.dataset.tab; if (!targetTab) return;
+            $$('.tab-button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            $$('.tab-content').forEach(c => c.classList.remove('active'));
+            $(targetTab + 'Content').classList.add('active');
+            if (targetTab === 'createDocument') {
+                if ($('createInvItemsContainer') && $('createInvItemsContainer').offsetParent !== null && $('createInvItemsContainer').children.length === 0) addInvoiceItemRow();
+                if ($('createChallanItemsContainer') && $('createChallanItemsContainer').offsetParent !== null && $('createChallanItemsContainer').children.length === 0) addChallanItemRow();
+            }
         }
 
-        // --- Load/Save Transactions ---
-        function getTransactions() { try { const d = localStorage.getItem(TRANSACTIONS_STORAGE_KEY); return d ? JSON.parse(d) : []; } catch (e) { console.error("Get transactions error:", e); return []; } }
-        function saveTransactions(transactions) { try { localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(transactions)); } catch (e) { console.error("Save transactions error:", e); alert("Could not save transactions."); } }
+        // --- Create Document Type Switching ---
+        /** Handles switching between Invoice, Challan, Credit Note, Debit Note sub-tabs. */
+         function switchCreateType(event) {
+             const targetType = event.target.dataset.createType; if (!targetType) return;
+             $$('.create-type-button').forEach(b => { b.classList.remove('border-indigo-500', 'text-indigo-600'); b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); });
+             event.target.classList.add('border-indigo-500', 'text-indigo-600');
+             event.target.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+             $$('.create-form').forEach(f => f.classList.add('hidden'));
+             const targetFormId = 'create' + targetType.charAt(0).toUpperCase() + targetType.slice(1) + 'Form';
+             $(targetFormId)?.classList.remove('hidden');
+             if (targetType === 'invoice' && $('createInvItemsContainer') && $('createInvItemsContainer').children.length === 0) addInvoiceItemRow();
+             if (targetType === 'challan' && $('createChallanItemsContainer') && $('createChallanItemsContainer').children.length === 0) addChallanItemRow();
+         }
 
         // --- Highlight Search Term ---
-        function highlightText(text, searchTerm) { if (!text || !searchTerm) return text; const esc = searchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); const rgx = new RegExp(`(${esc})`, 'gi'); return text.replace(rgx, `<span class="highlight">$1</span>`); }
+        /** Highlights occurrences of searchTerm within text using a span. */
+        function highlightText(text, searchTerm) {
+            if (!text || !searchTerm) return text;
+            const esc = searchTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const rgx = new RegExp(`(${esc})`, 'gi');
+            return text.replace(rgx, `<span class="highlight">$1</span>`);
+        }
 
         // --- Display Transactions ---
-        function displayTransactions(searchTerm = '') { /* ... (no changes needed) ... */
-            if (sessionStorage.getItem('isLoggedIn') !== 'true') return;
-            const allTransactions = getTransactions(); const listDiv = $('transactionList'); const noTransP = $('noTransactions'); const noSearchP = $('noSearchResults');
-            if (!listDiv || !noTransP || !noSearchP) { console.error("List display elements missing!"); return; }
-            listDiv.innerHTML = ''; const normSearch = searchTerm.trim().toLowerCase(); const role = sessionStorage.getItem('userRole');
-            const filtered = normSearch ? allTransactions.filter(tx => (tx.docNumber && tx.docNumber.toLowerCase().includes(normSearch)) || (tx.id && tx.id.toLowerCase().includes(normSearch))) : allTransactions;
-            noTransP.classList.toggle('hidden', allTransactions.length > 0); noSearchP.classList.toggle('hidden', !(filtered.length === 0 && allTransactions.length > 0));
+        /** Renders the list of transactions based on the in-memory cache and search term. */
+        function displayTransactions(searchTerm = '') {
+            const allTransactions = getTransactions();
+            const listDiv = $('transactionList');
+            const noTransP = $('noTransactions');
+            const noSearchP = $('noSearchResults');
+
+            if (!listDiv || !noTransP || !noSearchP) {
+                console.error("Transaction list display elements missing!");
+                return;
+            }
+            listDiv.innerHTML = '';
+            const normSearch = searchTerm.trim().toLowerCase();
+
+            const isSignedIn = gapi.client.getToken() !== null;
+            if (!isSignedIn) {
+                 noTransP.textContent = 'Please sign in with Google to load data.';
+                 noTransP.classList.remove('hidden');
+                 noSearchP.classList.add('hidden');
+                 updateDashboard();
+                 return;
+            }
+
+            const filtered = normSearch
+                ? allTransactions.filter(tx =>
+                    (tx.docNumber && tx.docNumber.toLowerCase().includes(normSearch)) ||
+                    (tx.id && tx.id.toLowerCase().includes(normSearch)) ||
+                    (tx.partyName && tx.partyName.toLowerCase().includes(normSearch))
+                  )
+                : allTransactions;
+
+            noTransP.textContent = 'No documents found in Google Drive file.';
+            noTransP.classList.toggle('hidden', allTransactions.length > 0);
+            noSearchP.classList.toggle('hidden', !(filtered.length === 0 && allTransactions.length > 0 && normSearch));
+
             if (filtered.length > 0) {
                 filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
                 filtered.forEach((tx) => {
-                    const card = document.createElement('div'); card.className = 'p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row gap-4 relative';
+                    const card = document.createElement('div');
+                    card.className = 'p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row gap-4 relative';
                     const trunc = (s, l) => (s && s.length > l) ? s.substring(0, l) + '...' : s;
-                    const isPaid = tx.paymentStatus === 'Paid'; const sBadgeCls = isPaid ? 'status-paid' : 'status-pending';
+                    const isPaid = tx.paymentStatus === 'Paid';
+                    const sBadgeCls = isPaid ? 'status-paid' : 'status-pending';
                     const sTxt = isPaid ? `Paid ${tx.paymentTransactionId ? `<span class="payment-ref">(Ref: ${tx.paymentTransactionId})</span>` : ''}` : 'Pending';
-                    const tglTxt = isPaid ? 'Mark Pending' : 'Mark Paid'; const tglCls = isPaid ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600';
+                    const tglTxt = isPaid ? 'Mark Pending' : 'Mark Paid';
+                    const tglCls = isPaid ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600';
                     const statHTML = tx.paymentStatus !== undefined ? `<span class="status-badge ${sBadgeCls}">${sTxt}</span> <button onclick="togglePaymentStatus('${tx.id}')" title="${tglTxt}" class="text-xs ${tglCls} text-white font-semibold py-1 px-2 rounded shadow hover:shadow-md transition duration-150 ml-2">${tglTxt}</button>` : '';
-                    let imgHTML = ''; if (tx.imageDataUrl) { imgHTML = `<img src="${tx.imageDataUrl}" alt="Doc Image" class="transaction-img mt-2 md:mt-0" onclick="openModal('${tx.imageDataUrl}')" onerror="this.style.display='none';">`; }
-                    const hiDoc = highlightText(tx.docNumber, normSearch); const hiId = highlightText(tx.id, normSearch);
-                    const delBtnHTML = role === 'admin' ? `<button title="Delete" onclick="deleteTransaction('${tx.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xl leading-none p-1 no-print">&times;</button>` : '';
+                    const hiDoc = highlightText(tx.docNumber, normSearch);
+                    const hiId = highlightText(tx.id, normSearch);
+                    const hiParty = highlightText(tx.partyName, normSearch);
+                    const delBtnHTML = `<button title="Delete" onclick="deleteTransaction('${tx.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xl leading-none p-1 no-print">&times;</button>`;
                     const printBtnHTML = tx.entryMethod === 'Created' ? `<button title="Print Document" onclick="printDocument('${tx.id}')" class="absolute bottom-2 right-2 text-blue-500 hover:text-blue-700 p-1 no-print"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a8.956 8.956 0 0 1-1.11-1.458L9.9 9.9l4.5 4.5 1.458-1.11a8.956 8.956 0 0 1 1.458 1.11m-.096.72a11.959 11.959 0 0 0-1.604 1.604m1.604-1.604 1.458 1.11m-1.458-1.11L15.3 9.9l-4.5 4.5-1.458 1.11M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096L3.75 14.25l-2.25 2.25.041.041a16.875 16.875 0 0 0 4.486 4.486.041.041L9 18.75l-2.25-2.25m9-3.75-2.25-2.25L15 9l2.25 2.25 2.25 2.25-2.25 2.25L15 18.75l-2.25-2.25m9-3.75h-6.75M6.75 9H3.75m3 0V3.75M17.25 9V3.75M3 9h18M3 15h18" /></svg></button>` : '';
                     const itemsDetailsHTML = tx.items && tx.items.length > 0 ? `<details class="text-xs mt-1"><summary class="cursor-pointer text-blue-600">Show Items (${tx.items.length})</summary><ul class="list-disc pl-5 mt-1 text-gray-600">${tx.items.map(item => `<li>${item.description || 'Item'} - Qty: ${item.quantity || 'N/A'} ${item.rate ? `- Rate: ${formatCurrency(item.rate)}` : ''} ${item.gstRate ? `- GST: ${item.gstRate}%` : ''} ${item.amount ? `- Amt: ${formatCurrency(item.amount)}` : ''}</li>`).join('')}</ul></details>` : '';
                     const taxDetailsHTML = tx.type === 'Sales Invoice' ? `<div class="text-xs text-gray-500 mt-1">Taxable: ${formatCurrency(tx.taxableAmount)} | CGST: ${formatCurrency(tx.cgstAmount)} | SGST: ${formatCurrency(tx.sgstAmount)} | IGST: ${formatCurrency(tx.igstAmount)}</div>` : '';
 
                     card.innerHTML = `
                         <div class="flex-grow space-y-1">
-                            <div class="flex justify-between items-center mb-1"> <span class="text-xs font-semibold px-2 py-0.5 rounded ${getTransactionTypeColor(tx.type)}">${tx.type || 'N/A'}</span> <span class="text-sm text-gray-600 font-medium">${tx.date ? new Date(tx.date).toLocaleDateString('en-GB') : 'N/A'}</span> </div>
-                            <h3 class="text-lg font-semibold text-gray-800">${tx.partyName || 'N/A'}</h3>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded ${getTransactionTypeColor(tx.type)}">${tx.type || 'N/A'}</span>
+                                <span class="text-sm text-gray-600 font-medium">${tx.date ? new Date(tx.date + 'T00:00:00').toLocaleDateString('en-GB') : 'N/A'}</span>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">${hiParty || 'N/A'}</h3>
                             <p class="text-sm text-gray-500">Doc No: ${hiDoc || 'N/A'} ${tx.refDocNumber ? `(Ref: ${tx.refDocNumber})` : ''}</p>
                             <p class="text-xs text-gray-400">ID: ${hiId || 'N/A'}</p>
                             ${tx.totalAmount !== undefined ? `<p class="text-sm text-gray-600"><strong>Total: ${formatCurrency(tx.totalAmount)}</strong></p>` : ''}
@@ -470,7 +949,6 @@
                             ${tx.partyGstin ? `<p class="text-xs text-gray-400 pt-1">GSTIN: ${tx.partyGstin}</p>` : ''}
                             ${itemsDetailsHTML}
                         </div>
-                        <div class="flex-shrink-0 w-[100px] h-[100px] flex items-center justify-center md:ml-auto"> ${imgHTML} </div>
                         ${delBtnHTML}
                         ${printBtnHTML}
                     `;
@@ -481,21 +959,66 @@
         }
 
         // --- Update Dashboard ---
-        function updateDashboard() { /* ... (no changes needed) ... */
-            const txns = getTransactions(); const stats = { totalInvoices: 0, totalChallans: 0, totalCreditNotes: 0, totalDebitNotes: 0, types: {} }; const allTypes = [...new Set(txns.map(t => t.type))]; allTypes.forEach(type => { if(type) stats.types[type] = { count: 0, totalAmount: 0 }; }); txns.forEach(tx => { const amt = parseFloat(tx.totalAmount) || 0; if (tx.type && stats.types[tx.type]) { stats.types[tx.type].count++; stats.types[tx.type].totalAmount += amt; } if (tx.type?.includes('Invoice')) stats.totalInvoices++; if (tx.type?.includes('Challan')) stats.totalChallans++; if (tx.type?.includes('Credit Note')) stats.totalCreditNotes++; if (tx.type?.includes('Debit Note')) stats.totalDebitNotes++; }); const fmtDashC = (n) => n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }); const dashDiv = $('dashboardStats'); if (!dashDiv) return; dashDiv.innerHTML = ''; const createCard = (label, value, count = null) => `<div class="dashboard-card"><div class="dashboard-label">${label}</div><div class="dashboard-value">${value}</div>${count !== null ? `<div class="text-xs text-gray-400 mt-1">(${count} docs)</div>` : ''}</div>`; if(stats.totalInvoices > 0) dashDiv.innerHTML += createCard('Total Invoices', stats.totalInvoices); if(stats.totalChallans > 0) dashDiv.innerHTML += createCard('Total Challans', stats.totalChallans); if(stats.totalCreditNotes > 0) dashDiv.innerHTML += createCard('Total Credit Notes', stats.totalCreditNotes); if(stats.totalDebitNotes > 0) dashDiv.innerHTML += createCard('Total Debit Notes', stats.totalDebitNotes); allTypes.forEach(type => { if (type && stats.types[type]?.count > 0 && stats.types[type]?.totalAmount > 0) { dashDiv.innerHTML += createCard(`${type} Total Amt`, fmtDashC(stats.types[type].totalAmount), stats.types[type].count); } }); if (dashDiv.children.length === 0) { dashDiv.innerHTML = `<p class="text-gray-500 col-span-full text-center">No data for dashboard.</p>`; }
+        /** Recalculates and displays dashboard statistics based on current transactions. */
+        function updateDashboard() {
+            const txns = getTransactions();
+            const stats = { totalDocs: 0, types: {} };
+            const allTypes = [...new Set(txns.map(t => t.type))].filter(Boolean);
+            allTypes.forEach(type => { stats.types[type] = { count: 0, totalAmount: 0 }; });
+
+            txns.forEach(tx => {
+                stats.totalDocs++;
+                const amt = parseFloat(tx.totalAmount) || 0;
+                if (tx.type && stats.types[tx.type]) {
+                    stats.types[tx.type].count++;
+                    if (tx.totalAmount !== undefined) {
+                         stats.types[tx.type].totalAmount += amt;
+                    }
+                }
+            });
+
+            const fmtDashC = (n) => n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            const dashDiv = $('dashboardStats'); if (!dashDiv) return;
+            dashDiv.innerHTML = '';
+
+            const createCard = (label, value, count = null) => `<div class="dashboard-card"><div class="dashboard-label">${label}</div><div class="dashboard-value">${value}</div>${count !== null ? `<div class="text-xs text-gray-400 mt-1">(${count} docs)</div>` : ''}</div>`;
+
+            dashDiv.innerHTML += createCard('Total Documents', stats.totalDocs);
+
+            allTypes.forEach(type => {
+                 if (stats.types[type]?.count > 0) {
+                     dashDiv.innerHTML += createCard(`${type} Count`, stats.types[type].count);
+                 }
+            });
+
+            allTypes.forEach(type => {
+                if (stats.types[type]?.count > 0 && stats.types[type]?.totalAmount > 0) {
+                    dashDiv.innerHTML += createCard(`${type} Total Amt`, fmtDashC(stats.types[type].totalAmount), stats.types[type].count);
+                }
+            });
+
+            if (dashDiv.children.length === 0) {
+                 const isSignedIn = gapi.client.getToken() !== null;
+                 dashDiv.innerHTML = `<p class="text-gray-500 col-span-full text-center">${isSignedIn ? 'No data for dashboard.' : 'Sign in to load dashboard data.'}</p>`;
+            }
         }
 
         // --- Get Color ---
-        function getTransactionTypeColor(type) { /* ... (no changes needed) ... */
-            if (!type) return 'bg-gray-100 text-gray-800'; if (type.includes('Invoice') || type.includes('Bill')) return 'bg-blue-100 text-blue-800'; if (type.includes('Credit Note')) return 'bg-green-100 text-green-800'; if (type.includes('Debit Note')) return 'bg-yellow-100 text-yellow-800'; if (type.includes('Challan')) return 'bg-purple-100 text-purple-800'; return 'bg-gray-100 text-gray-800';
+        /** Returns Tailwind CSS classes based on document type for visual distinction. */
+        function getTransactionTypeColor(type) {
+            if (!type) return 'bg-gray-100 text-gray-800';
+            if (type.includes('Invoice') || type.includes('Bill')) return 'bg-blue-100 text-blue-800';
+            if (type.includes('Credit Note')) return 'bg-green-100 text-green-800';
+            if (type.includes('Debit Note')) return 'bg-yellow-100 text-yellow-800';
+            if (type.includes('Challan')) return 'bg-purple-100 text-purple-800';
+            return 'bg-gray-100 text-gray-800';
         }
 
         // --- Handle Log Document Form ---
-        function handleLogDocumentFormSubmit(event) {
+        /** Processes the 'Log Existing Document' form submission. */
+        async function handleLogDocumentFormSubmit(event) {
             event.preventDefault();
             const form = $('logDocumentForm');
-            const imageInput = $('logDocImage');
-            const previewEl = $('logImagePreview');
             const formData = new FormData(form);
             const transaction = {
                 id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -514,45 +1037,94 @@
                 totalAmount: formData.get('logTotalAmount'),
                 remarks: formData.get('logRemarks'),
                 paymentStatus: 'Pending',
-                imageDataUrl: previewEl && previewEl.src.startsWith('data:image') ? previewEl.src : null
             };
             if (!transaction.type || !transaction.date || !transaction.docNumber || !transaction.partyName || !transaction.totalAmount) {
                 alert('Please fill required fields (*).');
                 return;
             }
             if (isNaN(parseFloat(transaction.totalAmount))) {
-                alert('Total Amount must be a number.');
+                alert('Total Amount must be a valid number.');
                 return;
             }
-            const transactions = getTransactions();
-            transactions.push(transaction);
-            saveTransactions(transactions);
+
+            const currentTransactions = getTransactions();
+            currentTransactions.push(transaction);
+            await saveTransactions(currentTransactions);
+
             form.reset();
-            if(previewEl) {
-                previewEl.src = '#';
-                previewEl.classList.add('hidden');
-            }
-            // displayTransactions($('searchInput').value); // No need to display before reload
+            displayTransactions($('searchInput')?.value || '');
             alert('Document logged successfully!');
-            console.log('Logged:', transaction.id);
-            location.reload(); // <<<--- Refresh added
+            console.log('Logged Document:', transaction.id);
         }
 
         // --- Handle Create Invoice Form ---
-         function addInvoiceItemRow() { /* ... (no changes needed) ... */
-             const container = $('createInvItemsContainer'); if (!container) return; const itemCount = container.children.length; const row = document.createElement('div'); row.className = 'item-row border-t pt-2'; row.innerHTML = ` <input type="text" name="invItemDesc_${itemCount}" placeholder="Item Description" class="p-1 border rounded text-sm w-desc"> <input type="number" name="invItemQty_${itemCount}" placeholder="Qty" value="1" min="0" step="any" class="p-1 border rounded text-sm w-qty inv-item-calc"> <input type="number" name="invItemRate_${itemCount}" placeholder="Rate" min="0" step="0.01" class="p-1 border rounded text-sm w-rate inv-item-calc"> <select name="invItemGst_${itemCount}" class="p-1 border rounded text-sm w-gst inv-item-calc"> <option value="0">GST 0%</option> <option value="5">GST 5%</option> <option value="12">GST 12%</option> <option value="18" selected>GST 18%</option> <option value="28">GST 28%</option> </select> <span class="item-amount text-sm w-amt">0.00</span> <button type="button" onclick="this.parentElement.remove(); calculateInvoiceTotals();" class="text-red-500 hover:text-red-700 text-xs p-1 w-btn">X</button> `; container.appendChild(row); row.querySelectorAll('.inv-item-calc').forEach(input => input.addEventListener('input', calculateInvoiceTotals)); calculateInvoiceTotals();
+        /** Adds a new empty item row to the invoice form. */
+         function addInvoiceItemRow() {
+             const container = $('createInvItemsContainer'); if (!container) return;
+             const itemCount = container.children.length;
+             const row = document.createElement('div');
+             row.className = 'item-row border-t pt-2';
+             row.innerHTML = `
+                <input type="text" name="invItemDesc_${itemCount}" placeholder="Item Description" class="p-1 border rounded text-sm w-desc">
+                <input type="number" name="invItemQty_${itemCount}" placeholder="Qty" value="1" min="0" step="any" class="p-1 border rounded text-sm w-qty inv-item-calc">
+                <input type="number" name="invItemRate_${itemCount}" placeholder="Rate" min="0" step="0.01" class="p-1 border rounded text-sm w-rate inv-item-calc">
+                <select name="invItemGst_${itemCount}" class="p-1 border rounded text-sm w-gst inv-item-calc">
+                    <option value="0">GST 0%</option>
+                    <option value="5">GST 5%</option>
+                    <option value="12">GST 12%</option>
+                    <option value="18" selected>GST 18%</option>
+                    <option value="28">GST 28%</option>
+                </select>
+                <span class="item-amount text-sm w-amt">0.00</span>
+                <button type="button" onclick="this.parentElement.remove(); calculateInvoiceTotals();" class="text-red-500 hover:text-red-700 text-xs p-1 w-btn">X</button>
+             `;
+             container.appendChild(row);
+             row.querySelectorAll('.inv-item-calc').forEach(input => input.addEventListener('input', calculateInvoiceTotals));
+             calculateInvoiceTotals();
          }
 
-         function calculateInvoiceTotals() { /* ... (no changes needed) ... */
-             let taxableTotal = 0; let cgstTotal = 0; let sgstTotal = 0; let igstTotal = 0; const customerState = $('createInvCustomerState').value; const myState = getCompanyDetails().state; const isIntraState = customerState && myState && customerState === myState; $$('#createInvItemsContainer .item-row').forEach((row, index) => { const qty = parseFloat(row.querySelector(`input[name="invItemQty_${index}"]`)?.value) || 0; const rate = parseFloat(row.querySelector(`input[name="invItemRate_${index}"]`)?.value) || 0; const gstRate = parseFloat(row.querySelector(`select[name="invItemGst_${index}"]`)?.value) || 0; const amountSpan = row.querySelector('.item-amount'); const amount = qty * rate; if(amountSpan) amountSpan.textContent = amount.toFixed(2); taxableTotal += amount; if (isIntraState) { const itemCgst = amount * (gstRate / 2 / 100); const itemSgst = amount * (gstRate / 2 / 100); cgstTotal += itemCgst; sgstTotal += itemSgst; } else if (customerState && myState) { const itemIgst = amount * (gstRate / 100); igstTotal += itemIgst; } }); const grandTotal = taxableTotal + cgstTotal + sgstTotal + igstTotal; $('invTaxableTotal').textContent = taxableTotal.toFixed(2); $('invCgstTotal').textContent = cgstTotal.toFixed(2); $('invSgstTotal').textContent = sgstTotal.toFixed(2); $('invIgstTotal').textContent = igstTotal.toFixed(2); $('invGrandTotal').textContent = grandTotal.toFixed(2);
+        /** Calculates and updates the invoice totals based on item inputs. */
+         function calculateInvoiceTotals() {
+             let taxableTotal = 0; let cgstTotal = 0; let sgstTotal = 0; let igstTotal = 0;
+             const customerState = $('createInvCustomerState').value;
+             const myState = getCompanyDetails().state;
+             const isIntraState = customerState && myState && customerState === myState;
+
+             $$('#createInvItemsContainer .item-row').forEach((row, index) => {
+                 const qty = parseFloat(row.querySelector(`input[name="invItemQty_${index}"]`)?.value) || 0;
+                 const rate = parseFloat(row.querySelector(`input[name="invItemRate_${index}"]`)?.value) || 0;
+                 const gstRate = parseFloat(row.querySelector(`select[name="invItemGst_${index}"]`)?.value) || 0;
+                 const amountSpan = row.querySelector('.item-amount');
+                 const amount = qty * rate;
+
+                 if(amountSpan) amountSpan.textContent = amount.toFixed(2);
+                 taxableTotal += amount;
+
+                 if (isIntraState) {
+                     const itemCgst = amount * (gstRate / 2 / 100);
+                     const itemSgst = amount * (gstRate / 2 / 100);
+                     cgstTotal += itemCgst;
+                     sgstTotal += itemSgst;
+                 } else if (customerState && myState) {
+                     const itemIgst = amount * (gstRate / 100);
+                     igstTotal += itemIgst;
+                 }
+             });
+             const grandTotal = taxableTotal + cgstTotal + sgstTotal + igstTotal;
+
+             $('invTaxableTotal').textContent = taxableTotal.toFixed(2);
+             $('invCgstTotal').textContent = cgstTotal.toFixed(2);
+             $('invSgstTotal').textContent = sgstTotal.toFixed(2);
+             $('invIgstTotal').textContent = igstTotal.toFixed(2);
+             $('invGrandTotal').textContent = grandTotal.toFixed(2);
          }
 
-
-        function handleCreateInvoiceFormSubmit(event) {
+        /** Processes the 'Create Invoice' form submission. */
+        async function handleCreateInvoiceFormSubmit(event) {
             event.preventDefault();
             const form = $('createInvoiceForm'); const formData = new FormData(form);
             const customerState = formData.get('createInvCustomerState');
-            const myState = getCompanyDetails().state; // Get from storage
+            const myState = getCompanyDetails().state;
             const isIntraState = customerState && myState && customerState === myState;
 
              const items = []; let finalTaxable = 0; let finalCgst = 0; let finalSgst = 0; let finalIgst = 0;
@@ -561,7 +1133,7 @@
                  const qty = parseFloat(row.querySelector(`input[name="invItemQty_${index}"]`)?.value) || 0;
                  const rate = parseFloat(row.querySelector(`input[name="invItemRate_${index}"]`)?.value) || 0;
                  const gstRate = parseFloat(row.querySelector(`select[name="invItemGst_${index}"]`)?.value) || 0;
-                 if (desc && qty > 0) {
+                 if (desc && qty > 0 && rate >= 0) {
                      const amount = qty * rate; let itemCgst = 0, itemSgst = 0, itemIgst = 0;
                      if (isIntraState) { itemCgst = amount * (gstRate / 2 / 100); itemSgst = amount * (gstRate / 2 / 100); }
                      else if (customerState && myState) { itemIgst = amount * (gstRate / 100); }
@@ -570,83 +1142,206 @@
                  }
              });
 
-            if (!formData.get('createInvDate') || !formData.get('createInvNumber') || !formData.get('createInvPartyName') || !customerState) { alert('Please fill required Invoice fields (Date, No, Customer Name, Customer State).'); return; }
-            if (items.length === 0) { alert('Please add at least one item.'); return; }
+            if (!formData.get('createInvDate') || !formData.get('createInvNumber') || !formData.get('createInvPartyName') || !customerState) {
+                alert('Please fill required Invoice fields (Date, No, Customer Name, Customer State).');
+                return;
+            }
+            if (items.length === 0) {
+                alert('Please add at least one valid item (Description, Qty > 0, Rate >= 0).');
+                return;
+            }
 
             const finalTotal = finalTaxable + finalCgst + finalSgst + finalIgst;
             const transaction = {
-                id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7), entryMethod: 'Created', type: 'Sales Invoice',
-                date: formData.get('createInvDate'), docNumber: formData.get('createInvNumber'),
-                partyName: formData.get('createInvPartyName'), partyGstin: formData.get('createInvPartyGstin'),
-                partyAddress: formData.get('createInvCustomerAddress'), // Save customer address
-                customerState: customerState, items: items, taxableAmount: finalTaxable.toFixed(2),
-                cgstAmount: finalCgst.toFixed(2), sgstAmount: finalSgst.toFixed(2), igstAmount: finalIgst.toFixed(2),
-                totalAmount: finalTotal.toFixed(2), paymentStatus: 'Pending', imageDataUrl: null
+                id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                entryMethod: 'Created', type: 'Sales Invoice',
+                date: formData.get('createInvDate'),
+                docNumber: formData.get('createInvNumber'),
+                partyName: formData.get('createInvPartyName'),
+                partyGstin: formData.get('createInvPartyGstin'),
+                partyAddress: formData.get('createInvCustomerAddress'),
+                customerState: customerState,
+                items: items,
+                taxableAmount: finalTaxable.toFixed(2),
+                cgstAmount: finalCgst.toFixed(2),
+                sgstAmount: finalSgst.toFixed(2),
+                igstAmount: finalIgst.toFixed(2),
+                totalAmount: finalTotal.toFixed(2),
+                paymentStatus: 'Pending',
             };
-            const transactions = getTransactions(); transactions.push(transaction); saveTransactions(transactions);
-            form.reset(); $('createInvItemsContainer').innerHTML = ''; addInvoiceItemRow();
-            // calculateInvoiceTotals(); // No need before reload
-            // displayTransactions($('searchInput').value); // No need before reload
+
+            const currentTransactions = getTransactions();
+            currentTransactions.push(transaction);
+            await saveTransactions(currentTransactions);
+
+            form.reset();
+            $('createInvItemsContainer').innerHTML = '';
+            addInvoiceItemRow();
+            calculateInvoiceTotals();
+            displayTransactions($('searchInput')?.value || '');
             alert('Invoice created successfully!');
             console.log('Created Invoice:', transaction.id);
-            location.reload(); // <<<--- Refresh added
          }
 
          // --- Handle Create Challan Form ---
-         function addChallanItemRow() { /* ... (no changes needed) ... */
-             const container = $('createChallanItemsContainer'); if (!container) return; const itemCount = container.children.length; const row = document.createElement('div'); row.className = 'item-row border-t pt-2'; row.innerHTML = `<input type="text" name="challanItemDesc_${itemCount}" placeholder="Item Description" class="p-1 border rounded text-sm w-3/4"> <input type="number" name="challanItemQty_${itemCount}" placeholder="Qty" value="1" min="0" step="any" class="p-1 border rounded text-sm w-1/4"> <button type="button" onclick="this.parentElement.remove();" class="text-red-500 hover:text-red-700 text-xs p-1">X</button>`; container.appendChild(row);
+         /** Adds a new empty item row to the challan form. */
+         function addChallanItemRow() {
+             const container = $('createChallanItemsContainer'); if (!container) return;
+             const itemCount = container.children.length;
+             const row = document.createElement('div');
+             row.className = 'item-row border-t pt-2';
+             row.innerHTML = `
+                <input type="text" name="challanItemDesc_${itemCount}" placeholder="Item Description" class="p-1 border rounded text-sm w-3/4">
+                <input type="number" name="challanItemQty_${itemCount}" placeholder="Qty" value="1" min="0" step="any" class="p-1 border rounded text-sm w-1/4">
+                <button type="button" onclick="this.parentElement.remove();" class="text-red-500 hover:text-red-700 text-xs p-1">X</button>
+             `;
+             container.appendChild(row);
          }
-         function handleCreateChallanFormSubmit(event) {
+         /** Processes the 'Create Challan' form submission. */
+         async function handleCreateChallanFormSubmit(event) {
             event.preventDefault();
             const form = $('createChallanForm'); const formData = new FormData(form);
-             const items = []; $$('#createChallanItemsContainer .item-row').forEach((row, index) => { const desc = row.querySelector(`input[name="challanItemDesc_${index}"]`)?.value || ''; const qty = parseFloat(row.querySelector(`input[name="challanItemQty_${index}"]`)?.value) || 0; if (desc && qty > 0) items.push({ description: desc, quantity: qty }); });
-            if (!formData.get('createChallanDate') || !formData.get('createChallanNumber') || !formData.get('createChallanPartyName')) { alert('Please fill required Challan fields (*).'); return; }
-            if (items.length === 0) { alert('Please add at least one item.'); return; }
+             const items = [];
+             $$('#createChallanItemsContainer .item-row').forEach((row, index) => {
+                 const desc = row.querySelector(`input[name="challanItemDesc_${index}"]`)?.value || '';
+                 const qty = parseFloat(row.querySelector(`input[name="challanItemQty_${index}"]`)?.value) || 0;
+                 if (desc && qty > 0) {
+                     items.push({ description: desc, quantity: qty });
+                 }
+             });
+            if (!formData.get('createChallanDate') || !formData.get('createChallanNumber') || !formData.get('createChallanPartyName')) {
+                alert('Please fill required Challan fields (*).');
+                return;
+            }
+            if (items.length === 0) {
+                alert('Please add at least one item.');
+                return;
+            }
              const transaction = {
-                 id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7), entryMethod: 'Created', type: 'Delivery Challan',
-                 date: formData.get('createChallanDate'), docNumber: formData.get('createChallanNumber'),
+                 id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                 entryMethod: 'Created', type: 'Delivery Challan',
+                 date: formData.get('createChallanDate'),
+                 docNumber: formData.get('createChallanNumber'),
                  partyName: formData.get('createChallanPartyName'),
-                 partyAddress: formData.get('createChallanReceiverAddress'), // Save receiver address
-                 items: items, totalAmount: undefined, paymentStatus: undefined, imageDataUrl: null
+                 partyAddress: formData.get('createChallanReceiverAddress'),
+                 items: items,
+                 totalAmount: undefined,
+                 paymentStatus: undefined,
             };
-            const transactions = getTransactions(); transactions.push(transaction); saveTransactions(transactions);
-            form.reset(); $('createChallanItemsContainer').innerHTML = ''; addChallanItemRow();
-            // displayTransactions($('searchInput').value); // No need before reload
+
+            const currentTransactions = getTransactions();
+            currentTransactions.push(transaction);
+            await saveTransactions(currentTransactions);
+
+            form.reset();
+            $('createChallanItemsContainer').innerHTML = '';
+            addChallanItemRow();
+            displayTransactions($('searchInput')?.value || '');
             alert('Challan created successfully!');
             console.log('Created Challan:', transaction.id);
-            location.reload(); // <<<--- Refresh added
          }
 
         // --- Delete Transaction ---
-        function deleteTransaction(transactionId) { /* ... (no changes needed) ... */
-              const role = sessionStorage.getItem('userRole'); if (role !== 'admin') { alert("Only admin can delete."); return; } if (!confirm('Delete this transaction?')) return; let txns = getTransactions(); const len = txns.length; txns = txns.filter(tx => tx.id !== transactionId); if (txns.length < len) { saveTransactions(txns); displayTransactions($('searchInput').value); console.log('Deleted:', transactionId); } else { console.error("Could not find transaction:", transactionId); }
+        /** Deletes a transaction from the list and saves the change to Google Drive. */
+        async function deleteTransaction(transactionId) {
+            if (!confirm('Delete this transaction permanently from Google Drive? This cannot be undone.')) {
+                return;
+            }
+
+            let currentTransactions = getTransactions();
+            const initialLength = currentTransactions.length;
+            const updatedTransactions = currentTransactions.filter(tx => tx.id !== transactionId);
+
+            if (updatedTransactions.length < initialLength) {
+                await saveTransactions(updatedTransactions);
+                displayTransactions($('searchInput')?.value || '');
+                console.log('Deleted transaction:', transactionId);
+                alert('Transaction deleted successfully.');
+            } else {
+                console.error("Could not find transaction to delete:", transactionId);
+                alert('Error: Could not find the transaction to delete.');
+            }
         }
 
          // --- Toggle Payment Status ---
-         function togglePaymentStatus(transactionId) { /* ... (no changes needed) ... */
-              let txns = getTransactions(); const idx = txns.findIndex(tx => tx.id === transactionId); if (idx === -1 || txns[idx].paymentStatus === undefined) { console.error("Could not find transaction or status:", transactionId); return; } const currentStatus = txns[idx].paymentStatus; let newStatus = 'Pending'; let paymentRef = null; if (currentStatus === 'Pending') { paymentRef = prompt("Enter Payment Transaction ID / Reference (Mandatory):"); if (paymentRef === null) return; paymentRef = paymentRef.trim(); if (!paymentRef) { alert("Payment Transaction ID is mandatory to mark as Paid."); return; } newStatus = 'Paid'; } else { newStatus = 'Pending'; paymentRef = null; } txns[idx].paymentStatus = newStatus; txns[idx].paymentTransactionId = paymentRef; saveTransactions(txns); displayTransactions($('searchInput').value); console.log(`Status updated for ${transactionId}: ${newStatus} ${paymentRef ? `(Ref: ${paymentRef})` : ''}`);
+         /** Toggles the payment status of a transaction (Pending/Paid) and saves to Drive. */
+         async function togglePaymentStatus(transactionId) {
+              let currentTransactions = getTransactions();
+              const idx = currentTransactions.findIndex(tx => tx.id === transactionId);
+              if (idx === -1 || currentTransactions[idx].paymentStatus === undefined) {
+                  console.error("Could not find transaction or status not applicable:", transactionId);
+                  alert('Error: Could not find transaction or it does not support payment status.');
+                  return;
+              }
+
+              const currentStatus = currentTransactions[idx].paymentStatus;
+              let newStatus = 'Pending';
+              let paymentRef = null;
+
+              if (currentStatus === 'Pending') {
+                  paymentRef = prompt("Enter Payment Transaction ID / Reference (Mandatory):");
+                  if (paymentRef === null) return;
+                  paymentRef = paymentRef.trim();
+                  if (!paymentRef) {
+                      alert("Payment Transaction ID is mandatory to mark as Paid.");
+                      return;
+                  }
+                  newStatus = 'Paid';
+              } else {
+                  newStatus = 'Pending';
+                  paymentRef = null;
+              }
+
+              currentTransactions[idx] = {
+                  ...currentTransactions[idx],
+                  paymentStatus: newStatus,
+                  paymentTransactionId: paymentRef
+              };
+
+              await saveTransactions(currentTransactions);
+              displayTransactions($('searchInput')?.value || '');
+              console.log(`Payment status updated for ${transactionId}: ${newStatus} ${paymentRef ? `(Ref: ${paymentRef})` : ''}`);
          }
 
-        // --- Image Modal ---
-        function openModal(imageUrl) { /* ... (no changes needed) ... */
-             const iM = $('imageModal'); const mI = $('modalImage'); if (imageUrl && imageUrl.startsWith('data:image') && iM && mI) { mI.src = imageUrl; iM.style.display = "flex"; } else { console.error("Invalid image URL/modal elements:", imageUrl); alert("Could not load image."); }
-        }
-        function closeModal() { /* ... (no changes needed) ... */
-              const iM = $('imageModal'); const mI = $('modalImage'); if(iM) iM.style.display = "none"; if(mI) mI.src = "";
-        }
-        function closeModalOnClickOutside(event) { /* ... (no changes needed) ... */
-               if (event.target == $('imageModal')) closeModal();
-        }
+        // --- Image Modal (Placeholder - Image functionality removed) ---
+        function openModal(imageUrl) { alert("Image preview is currently disabled in this version."); }
+        function closeModal() { /* No modal to close */ }
+        function closeModalOnClickOutside(event) { /* No modal to close */ }
 
         // --- Print Document ---
-        function printDocument(transactionId) { /* ... (no changes needed) ... */
-            const transactions = getTransactions(); const doc = transactions.find(tx => tx.id === transactionId); if (!doc) { alert('Document not found!'); return; } let printHTML = ''; if (doc.type === 'Sales Invoice') { printHTML = formatInvoiceForPrint(doc); } else if (doc.type === 'Delivery Challan') { printHTML = formatChallanForPrint(doc); } else { alert('Printing not supported for this document type yet.'); return; } const printWindow = window.open('', '_blank', 'height=600,width=800'); if (printWindow) { printWindow.document.write(printHTML); printWindow.document.close(); setTimeout(() => { printWindow.focus(); printWindow.print(); /* printWindow.close(); */ }, 500); } else { alert('Could not open print window. Check pop-up settings.'); }
+        /** Generates HTML for printing and opens the print dialog. */
+        function printDocument(transactionId) {
+            const transactions = getTransactions();
+            const doc = transactions.find(tx => tx.id === transactionId);
+            if (!doc) { alert('Document not found!'); return; }
+
+            let printHTML = '';
+            if (doc.type === 'Sales Invoice') {
+                printHTML = formatInvoiceForPrint(doc);
+            } else if (doc.type === 'Delivery Challan') {
+                printHTML = formatChallanForPrint(doc);
+            } else {
+                alert('Printing not supported for this document type yet.');
+                return;
+            }
+
+            const printWindow = window.open('', '_blank', 'height=800,width=800');
+            if (printWindow) {
+                printWindow.document.write(printHTML);
+                printWindow.document.close();
+                setTimeout(() => {
+                    printWindow.focus();
+                    printWindow.print();
+                 }, 500);
+            } else {
+                alert('Could not open print window. Please check your pop-up blocker settings.');
+            }
         }
 
+        /** Formats a Sales Invoice object into printable HTML. */
         function formatInvoiceForPrint(doc) {
-            const company = getCompanyDetails(); // Get from storage
+            const company = getCompanyDetails();
             const itemsHTML = doc.items?.map(item => `<tr><td>${item.description || ''}</td><td class="num">${item.quantity || 0}</td><td class="num">${formatCurrency(item.rate)}</td><td class="num">${item.gstRate || 0}%</td><td class="num">${formatCurrency(item.amount)}</td><td class="num">${formatCurrency(item.cgst)}</td><td class="num">${formatCurrency(item.sgst)}</td><td class="num">${formatCurrency(item.igst)}</td><td class="num">${formatCurrency(item.amount + (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0))}</td></tr>`).join('') || '';
-            // Format addresses for display with line breaks
             const companyAddressHTML = company.address ? company.address.replace(/\n/g, '<br>') : 'N/A';
             const customerAddressHTML = doc.partyAddress ? doc.partyAddress.replace(/\n/g, '<br>') : 'N/A';
 
@@ -663,14 +1358,14 @@
                         <div class="print-customer-details">
                             <strong>Bill To:</strong><br>
                             ${doc.partyName || 'N/A'}<br>
-                            ${customerAddressHTML}<br> {/* Display customer address */}
+                            ${customerAddressHTML}<br>
                             ${doc.partyGstin ? `GSTIN: ${doc.partyGstin}<br>` : ''}
                             State: ${doc.customerState || 'N/A'}
                         </div>
                     </div>
-                     <div class="print-details" style="clear:both;">
+                     <div class="print-details" style="clear:both; font-size:10pt; margin-bottom: 15px;">
                         <div><strong>Invoice No:</strong> ${doc.docNumber || 'N/A'}</div>
-                        <div><strong>Invoice Date:</strong> ${doc.date ? new Date(doc.date).toLocaleDateString('en-GB') : 'N/A'}</div>
+                        <div><strong>Invoice Date:</strong> ${doc.date ? new Date(doc.date + 'T00:00:00').toLocaleDateString('en-GB') : 'N/A'}</div>
                     </div>
                     <table class="print-table"><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>GST%</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th></tr></thead><tbody>${itemsHTML}</tbody></table>
                     <div class="print-totals">
@@ -684,8 +1379,9 @@
                 </body></html>`;
         }
 
+        /** Formats a Delivery Challan object into printable HTML. */
         function formatChallanForPrint(doc) {
-             const company = getCompanyDetails(); // Get from storage
+             const company = getCompanyDetails();
              const itemsHTML = doc.items?.map(item => `<tr><td>${item.description || ''}</td><td class="num">${item.quantity || 0}</td></tr>`).join('') || '';
              const companyAddressHTML = company.address ? company.address.replace(/\n/g, '<br>') : 'N/A';
              const receiverAddressHTML = doc.partyAddress ? doc.partyAddress.replace(/\n/g, '<br>') : 'N/A';
@@ -699,7 +1395,7 @@
                     </div>
                      <div style="font-size:10pt; margin-bottom: 15px;">
                         <div><strong>Challan No:</strong> ${doc.docNumber || 'N/A'}</div>
-                        <div><strong>Challan Date:</strong> ${doc.date ? new Date(doc.date).toLocaleDateString('en-GB') : 'N/A'}</div>
+                        <div><strong>Challan Date:</strong> ${doc.date ? new Date(doc.date + 'T00:00:00').toLocaleDateString('en-GB') : 'N/A'}</div>
                     </div>
                     <table class="print-table"><thead><tr><th>Description</th><th>Quantity</th></tr></thead><tbody>${itemsHTML}</tbody></table>
                      <div style="margin-top:30px;font-size:10pt;">Received the above goods in good condition.</div>
@@ -709,42 +1405,69 @@
         }
 
         // --- Export to CSV ---
-        function escapeCsvCell(cellData) { if (cellData == null) return ''; const s = String(cellData); if (s.includes(',') || s.includes('"') || s.includes('\n')) { return `"${s.replace(/"/g, '""')}"`; } return s; }
+        /** Escapes data for safe inclusion in a CSV cell. */
+        function escapeCsvCell(cellData) {
+            if (cellData == null) return '';
+            const s = String(cellData);
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+                return `"${s.replace(/"/g, '""')}"`;
+            }
+            return s;
+        }
+        /** Exports the current transaction data to a CSV file. */
         function exportToCsv() {
-             const txns = getTransactions(); if (txns.length === 0) { alert("No data to export."); return; }
-             const headers = [ 'ID', 'EntryMethod', 'Type', 'Date', 'DocNumber', 'PartyName', 'PartyGSTIN', 'PartyAddress', 'CustomerState', 'RefDocNumber', 'Description', 'Items', 'TaxableAmount', 'CGSTAmount', 'SGSTAmount', 'IGSTAmount', 'TotalAmount', 'PaymentStatus', 'PaymentTransactionId', 'Remarks' ]; // Added PartyAddress
+             const txns = getTransactions();
+             if (txns.length === 0) { alert("No data to export."); return; }
+             const headers = [ 'ID', 'EntryMethod', 'Type', 'Date', 'DocNumber', 'PartyName', 'PartyGSTIN', 'PartyAddress', 'CustomerState', 'RefDocNumber', 'Description', 'Items', 'TaxableAmount', 'CGSTAmount', 'SGSTAmount', 'IGSTAmount', 'TotalAmount', 'PaymentStatus', 'PaymentTransactionId', 'Remarks' ];
              const rows = txns.map(tx => {
                  const itemsString = tx.items ? tx.items.map(item => `${item.description || ''} (Qty:${item.quantity || 0}${item.rate ? `,Rate:${item.rate}`:''}${item.gstRate ? `,GST:${item.gstRate}%`:''})`).join('; ') : '';
-                 return [ escapeCsvCell(tx.id), escapeCsvCell(tx.entryMethod), escapeCsvCell(tx.type), escapeCsvCell(tx.date), escapeCsvCell(tx.docNumber), escapeCsvCell(tx.partyName), escapeCsvCell(tx.partyGstin), escapeCsvCell(tx.partyAddress), escapeCsvCell(tx.customerState), escapeCsvCell(tx.refDocNumber), escapeCsvCell(tx.description), escapeCsvCell(itemsString), escapeCsvCell(tx.taxableAmount), escapeCsvCell(tx.cgstAmount), escapeCsvCell(tx.sgstAmount), escapeCsvCell(tx.igstAmount), escapeCsvCell(tx.totalAmount), escapeCsvCell(tx.paymentStatus), escapeCsvCell(tx.paymentTransactionId), escapeCsvCell(tx.remarks) ].join(','); // Added partyAddress
+                 return [
+                     escapeCsvCell(tx.id), escapeCsvCell(tx.entryMethod), escapeCsvCell(tx.type), escapeCsvCell(tx.date), escapeCsvCell(tx.docNumber),
+                     escapeCsvCell(tx.partyName), escapeCsvCell(tx.partyGstin), escapeCsvCell(tx.partyAddress), escapeCsvCell(tx.customerState),
+                     escapeCsvCell(tx.refDocNumber), escapeCsvCell(tx.description), escapeCsvCell(itemsString), escapeCsvCell(tx.taxableAmount),
+                     escapeCsvCell(tx.cgstAmount), escapeCsvCell(tx.sgstAmount), escapeCsvCell(tx.igstAmount), escapeCsvCell(tx.totalAmount),
+                     escapeCsvCell(tx.paymentStatus), escapeCsvCell(tx.paymentTransactionId), escapeCsvCell(tx.remarks)
+                 ].join(',');
              });
              const csvString = [headers.join(','), ...rows].join('\n');
-             const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a");
-             if (link.download !== undefined) { const url = URL.createObjectURL(blob); const ts = new Date().toISOString().slice(0, 10); link.setAttribute("href", url); link.setAttribute("download", `documents_${ts}.csv`); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); }
-             else { alert("CSV export not supported."); }
+             const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+             const link = document.createElement("a");
+
+             if (link.download !== undefined) {
+                 const url = URL.createObjectURL(blob);
+                 const ts = new Date().toISOString().slice(0, 10);
+                 link.setAttribute("href", url);
+                 link.setAttribute("download", `documents_${ts}.csv`);
+                 link.style.visibility = 'hidden';
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+                 URL.revokeObjectURL(url);
+             } else {
+                 alert("CSV export download not automatically supported by your browser.");
+             }
         }
 
-        // --- Initial Load ---
+        // --- Initial Load & Event Listeners ---
+        /** Sets up event listeners after the DOM is fully loaded. */
         document.addEventListener('DOMContentLoaded', () => {
-             console.log("DOM loaded.");
-             try {
-                 initializeUsers(); checkInitialLoginState(); // Checks login and shows appropriate screen
-                 // Attach listeners only AFTER DOM is ready and initial screen is shown
-                 $('loginForm')?.addEventListener('submit', handleLogin);
-                 $('logoutBtn')?.addEventListener('click', handleLogout);
-                 $('saveCompanyDetailsBtn')?.addEventListener('click', saveCompanyDetails); // Listener for saving company details
-                 $('logDocumentForm')?.addEventListener('submit', handleLogDocumentFormSubmit);
-                 $('logDocImage')?.addEventListener('change', (e) => handleImagePreview(e, 'logImagePreview'));
-                 $('createInvoiceForm')?.addEventListener('submit', handleCreateInvoiceFormSubmit);
-                 $('addInvItemBtn')?.addEventListener('click', addInvoiceItemRow);
-                 $('createInvCustomerState')?.addEventListener('change', calculateInvoiceTotals);
-                 $('createChallanForm')?.addEventListener('submit', handleCreateChallanFormSubmit);
-                 $('addChallanItemBtn')?.addEventListener('click', addChallanItemRow);
-                 $('exportCsvBtn')?.addEventListener('click', exportToCsv);
-                 $('searchInput')?.addEventListener('input', (e) => displayTransactions(e.target.value));
-                 $$('.tab-button').forEach(b => b.addEventListener('click', switchTab));
-                 $$('.create-type-button').forEach(b => b.addEventListener('click', switchCreateType));
-                 console.log("Event listeners attached.");
-             } catch (error) { console.error("Init error:", error); document.body.innerHTML = `<div style="padding:20px;color:red;font-family:sans-serif;">App Error: ${error.message}. Check console (F12).</div>`; }
+             console.log("DOM loaded. Initializing Google Auth libraries via script tags...");
+             // Attach event listeners to static elements
+             $('saveCompanyDetailsBtn')?.addEventListener('click', saveCompanyDetails);
+             $('logDocumentForm')?.addEventListener('submit', handleLogDocumentFormSubmit);
+             $('createInvoiceForm')?.addEventListener('submit', handleCreateInvoiceFormSubmit);
+             $('addInvItemBtn')?.addEventListener('click', addInvoiceItemRow);
+             $('createInvCustomerState')?.addEventListener('change', calculateInvoiceTotals);
+             $('companyState')?.addEventListener('change', calculateInvoiceTotals);
+             $('createChallanForm')?.addEventListener('submit', handleCreateChallanFormSubmit);
+             $('addChallanItemBtn')?.addEventListener('click', addChallanItemRow);
+             $('exportCsvBtn')?.addEventListener('click', exportToCsv);
+             $('searchInput')?.addEventListener('input', (e) => displayTransactions(e.target.value));
+             $$('.tab-button').forEach(b => b.addEventListener('click', switchTab));
+             $$('.create-type-button').forEach(b => b.addEventListener('click', switchCreateType));
+             console.log("Static event listeners attached.");
+             // Note: Google API loading is initiated via the async script tags,
+             // which call gapiLoaded() and gisLoaded() upon completion.
         });
 
     </script>
